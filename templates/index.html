@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<script src="/static/scripts/controls.js"></script>
+
+<h1></h1>
+
+<ol>
+  <li>push to vlc</li>
+  <li>rating interface (right click menu?)</li>
+  <li>show currently playing</li>
+  <li>clean up</li>
+  <li>use bootstrap</li>
+  <li>hook up controls</li>
+  <li>implement & show queue</li>
+  <li>add to queue</li>
+  <li>show thumbnail</li>
+</ol>
+
+<p>currently playing</p>
+<div style="border: 1px solid black; width: 300px; height: 20px;" id="currentlyPlaying">Not yet set</div>
+<button class="playerControls" onclick="prev()" >Prev</button>
+<button class="playerControls" onclick="playPause()" >Play/Pause</button>
+<button class="playerControls" onclick="next()" >Next</button>
+
+<p>Add Url</p>
+<input type=text size=50 id=youtubeUrl name=youtubeUrl><br>
+<button onclick="download_video()" >download</button><br>
+<button onclick="rate_video()" >rate</button><br>
+<button onclick="get_list()" >Get File List</button>
+<p>Current Queue</p>
+<div id="queue"></div>
+<p>All Files</p>
+<div id="files"></div>
+{% endblock %}
