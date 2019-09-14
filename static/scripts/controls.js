@@ -18,15 +18,32 @@ var myPlayer = null;
         // $('input[name=a]').focus();
     });
   
+    function play_pause(){
+        console.log('firing play/pause')
+      
+        $.getJSON($SCRIPT_ROOT + '/_play_pause', {
+              // url: $('#youtubeUrl').val(),
+          }, function(data) {
+              if(data.result.length===0){
+                console.log('no data')
+              }else{
+                console.log(data.result);
+              }
+          });
+
+    }
     function play_video(name){
-        if(myPlayer != null){
-            console.log(myPlayer, myPlayer.currentSrc())
-            console.log('playing ' + '/downloads/' + name)
-            myPlayer.src = '/downloads/' + name;
-            console.log(myPlayer, myPlayer.currentSrc())
-            myPlayer.load();
-            // myPlayer.play();
-        }
+        console.log('attempting to play: ' + name)
+      
+        $.getJSON($SCRIPT_ROOT + '/_play_video', {
+            file_name: name,
+          }, function(data) {
+              if(data.result.length===0){
+                console.log('no data')
+              }else{
+                console.log(data.result);
+              }
+          });
     }
   
     function download_video(){

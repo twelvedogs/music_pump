@@ -13,16 +13,53 @@ from flask import Flask, jsonify, render_template, request
 import sqlite3
 import os
 
+import telnetlib
 import youtube_dl
 
 app = Flask(__name__)
 
-@app.route('/_play_song')
-def play_song():
+def video():
+    get_by_id(id): 
+        
+
+tn = None
+pause_toggle = False
+def telnet_connect():
+    global tn
+
+    host = 'localhost' #input("Inserisci l'HOST: ") 
+    # password = '' #input("Inserisci la password (default: admin): ")
+    port = '23' #input("Inserisci la porta (4212 per VLC telnet server): ")
+
+    print('Connecting', host, port)
+    tn = telnetlib.Telnet(host, port) # default telnet: 23
+
+def telnet_command(cmd):
+    global tn
+    if(tn == None):
+        telnet_connect()
+    cmd += '\n'
+    print('running cmd: ' + str(cmd))
+    tn.write(cmd.encode("utf-8"))
+
+    print('response: ', str(tn.read_eager())) # just get whatever is in the buffer
+
+    # return tn
+
+@app.route('/_play_pause')
+def play_pause():
+    '''play song by id, filename or title
+        currently using the vlc rpc telnet interface, start vlc with "vlc --rc-host localhost:23"
+    '''
+    telnet_command('pause')
+    return jsonify(result=True)
+
+@app.route('/_play_video')
+def play_video():
     '''play song by id, filename or title'''
-    file_name = request.args.get('file_name')
+    file_name = request.args.get('videoId')
 
-
+    telnet_command('add "F:\\code\\music_pump\\downloads\\Arcade Fire - Reflektor - 7E0fVfectDo.mp4"')
 
     return jsonify(result='Playing ' + file_name)
 
@@ -175,7 +212,7 @@ def list_videos():
 @app.route('/_download_video')
 def download_video():
     '''download video and set default rating in db'''
-    url = request.args.get('url', '', str)
+    url = request.args.get('url', '', type=str)
 
     # need to specify download format of h264 for rpi
     # need to catch malformed url
@@ -204,12 +241,12 @@ def download_video():
 
     return jsonify(result=video) 
 
-@app.route('/_add_numbers')
-def add_numbers():
-    '''Add two numbers server side, ridiculous but well...'''
-    a = request.args.get('a', 0, type=int)
-    b = request.args.get('b', 0, type=int)
-    return jsonify(result=a + b +1)
+# @app.route('/_add_numbers')
+# def add_numbers():
+#     '''Add two numbers server side, ridiculous but well...'''
+#     a = request.args.get('a', 0, type=int)
+#     b = request.args.get('b', 0, type=int)
+#     return jsonify(result=a + b +1)
 
 
 @app.route('/')
