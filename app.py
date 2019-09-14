@@ -18,18 +18,58 @@ import youtube_dl
 
 app = Flask(__name__)
 
-def video():
-    get_by_id(id): 
-        
+path = 'F:\\code\\music_pump\\downloads\\'
+
+def load_video(videoId = 0):
+    print('videoId', videoId)
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        # videos=[]
+        for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
+            video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
+            # videos += video
+        return video
+
+class Video:
+    def __init__(self, videoId, title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy):
+        if(videoId > 0 ):
+            self.videoId = videoId
+        self.title = title
+        self.filename = filename
+        self.rating = rating
+        self.lastPlayed = lastPlayed
+        self.dateAdded = dateAdded
+        self.mature = mature
+        self.videoType = videoType
+        self.addedBy = addedBy
+    def __str__(self):
+        return self.title + ' ' + self.filename + ' ' + str(self.videoId)
+
+    def save(self):
+        conn = sqlite3.connect('video.db')
+        with conn:
+            c = conn.cursor()
+            if(self.videoId>0):
+                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy where videoId=:videoId', 
+                    self)
+            else:
+                # c.execute('insert into video set (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (?,?,?,?,?,?,?,?) where videoId=?', 
+                #     {title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy, videoId})
+                c.execute('insert into video set (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
+                    self)
+            
+
+
 
 tn = None
 pause_toggle = False
 def telnet_connect():
     global tn
 
-    host = 'localhost' #input("Inserisci l'HOST: ") 
-    # password = '' #input("Inserisci la password (default: admin): ")
-    port = '23' #input("Inserisci la porta (4212 per VLC telnet server): ")
+    host = 'localhost' # ip/hostname
+    # password = '' # currently not set
+    port = '23'
 
     print('Connecting', host, port)
     tn = telnetlib.Telnet(host, port) # default telnet: 23
@@ -42,9 +82,20 @@ def telnet_command(cmd):
     print('running cmd: ' + str(cmd))
     tn.write(cmd.encode("utf-8"))
 
-    print('response: ', str(tn.read_eager())) # just get whatever is in the buffer
+     # just get whatever is in the buffer
+    response = str(tn.read_eager())
+    print('response: ', response)
 
-    # return tn
+    return response
+
+@app.route('/_get_length')
+def get_length():
+    '''play song by id, filename or title
+        currently using the vlc rpc telnet interface, start vlc with "vlc --rc-host localhost:23"
+    '''
+    length = telnet_command('get_length')
+
+    return jsonify(result=length)
 
 @app.route('/_play_pause')
 def play_pause():
@@ -57,66 +108,34 @@ def play_pause():
 @app.route('/_play_video')
 def play_video():
     '''play song by id, filename or title'''
-    file_name = request.args.get('videoId')
+    video = load_video(request.args.get('videoId'))
+    print(video)
+    telnet_command('add "'+ path + video.filename + '"')
 
-    telnet_command('add "F:\\code\\music_pump\\downloads\\Arcade Fire - Reflektor - 7E0fVfectDo.mp4"')
-
-    return jsonify(result='Playing ' + file_name)
+    return jsonify(result='Playing ' + video.filename)
 
 @app.route('/_get_song')
 def get_song():
     '''not sure, maybe get current song info'''
-    file_name = request.args.get('file_name')
     
-    # b = request.args.get('b', 0, type=int)
-    
-    return jsonify(result=True)
+    return jsonify(result=telnet_command('get_title'))
 
-@app.route('/_database')
-def database():
-    '''test database function'''
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        # filenames = next(os.walk('downloads'))[2]
+@app.route('/_raw_command')
+def raw_command():
+    '''not sure, maybe get current song info'''
+    cmd = request.args.get('cmd')
 
-        # t = ('RHAT',)
-        # c.execute('SELECT * FROM video WHERE symbol=?', t)
-        # c.execute('SELECT * FROM video')
-        # print(c.fetchone())
+    return jsonify(result=telnet_command(cmd))
 
-        # c.execute('CREATE TABLE t(songId INTEGER PRIMARY KEY ASC, y, z);', t)
-
-        # Larger example that inserts many records at a time
-        # purchases = [('2006-03-28', 'BUY', 'IBM', 1000, 45.00),
-        #              ('2006-04-05', 'BUY', 'MSFT', 1000, 72.00),
-        #              ('2006-04-06', 'SELL', 'IBM', 500, 53.00),
-        #             ]
-        # c.executemany('INSERT INTO stocks VALUES (?,?,?,?,?)', purchases)
-
-        # c.execute('insert into video (title, filename) values (?,?)', ('test name','test.mp4'))
-        
-        for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
-            print(row)
-
-        # conn.commit()
-
-        # (u'2006-01-05', u'BUY', u'RHAT', 100, 35.14)
-        # (u'2006-03-28', u'BUY', u'IBM', 1000, 45.0)
-        # (u'2006-04-06', u'SELL', u'IBM', 500, 53.0)
-        # (u'2006-04-05', u'BUY', u'MSFT', 1000, 72.0)
-        
-        return jsonify(result=True)
-
-def add_video_to_database(title, filename):
+def add_video_to_database(title, filename, addedBy):
     '''add new video record into db'''
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
         # todo: check if filename exists here and overwrite if it does
-        c.execute('insert into video (title, filename) values (?,?)', (title, filename))
+        c.execute('insert into video (title, filename, addedBy) values (?, ?, ?)', (title, filename, addedBy))
         
-        print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'type', 'added by')
+        print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
         for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
             print(row)
         
@@ -133,9 +152,6 @@ def rate_video():
         c = conn.cursor()
 
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
-
-        for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
-            print(row)
 
         return jsonify(result=True)
 
@@ -178,6 +194,7 @@ def get_queue():
 
         # dunno if this can be simplified
         for row in c.execute(queueSql):
+
             video = {}
             video['videoId'] = row[0]
             video['title'] = row[1]
@@ -213,10 +230,10 @@ def list_videos():
 def download_video():
     '''download video and set default rating in db'''
     url = request.args.get('url', '', type=str)
+    addedBy = request.args.get('addedBy', '', type=str)
 
     # need to specify download format of h264 for rpi
     # need to catch malformed url
-    # need to not download entire fucking playlist
     ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s'})
 
     with ydl:
@@ -227,7 +244,9 @@ def download_video():
 
     if 'entries' in result:
         # Can be a playlist or a list of videos
-        video = result['entries'][0]
+        # not doing playlists yet
+        # video = result['entries'][0]
+        return jsonify(result=False)
     else:
         # Just a video
         video = result
@@ -237,7 +256,7 @@ def download_video():
     filename = video['title'] + ' - ' + video['id'] + '.' + video['ext']
     print('guessing filename should be: ' + filename)
 
-    add_video_to_database(filename, video['title'])
+    add_video_to_database(video['title'], filename, addedBy)
 
     return jsonify(result=video) 
 

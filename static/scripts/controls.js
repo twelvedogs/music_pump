@@ -17,10 +17,20 @@ var myPlayer = null;
  
         // $('input[name=a]').focus();
     });
-  
+
+    function raw_command(cmd){
+        $.getJSON($SCRIPT_ROOT + '/_raw_command', {
+            cmd: cmd,
+        }, function(data) {
+            if(data.result.length===0){
+              console.log('no data')
+            }else{
+              console.log(data.result);
+            }
+        });
+    }
+
     function play_pause(){
-        console.log('firing play/pause')
-      
         $.getJSON($SCRIPT_ROOT + '/_play_pause', {
               // url: $('#youtubeUrl').val(),
           }, function(data) {
@@ -30,13 +40,38 @@ var myPlayer = null;
                 console.log(data.result);
               }
           });
-
     }
-    function play_video(name){
-        console.log('attempting to play: ' + name)
+
+    function get_song(){
+        $.getJSON($SCRIPT_ROOT + '/_get_song', {
+              // url: $('#youtubeUrl').val(),
+          }, function(data) {
+              if(data.result.length===0){
+                console.log('no data')
+              }else{
+                console.log(data.result);
+                $('#currentlyPlaying').text(data.result);
+              }
+          });
+    }
+
+    function get_length(){
+        $.getJSON($SCRIPT_ROOT + '/_get_length', {
+              // url: $('#youtubeUrl').val(),
+          }, function(data) {
+              if(data.result.length===0){
+                console.log('no data')
+              }else{
+                console.log(data.result);
+              }
+          });
+    }
+
+    function play_video(id){
+        console.log('attempting to play: ' + id)
       
         $.getJSON($SCRIPT_ROOT + '/_play_video', {
-            file_name: name,
+            videoId: id,
           }, function(data) {
               if(data.result.length===0){
                 console.log('no data')
@@ -100,18 +135,13 @@ var myPlayer = null;
     }
 
     function rate_video(){
-        $.getJSON($SCRIPT_ROOT + '/_database', {
-            test: 'test',
+        $.getJSON($SCRIPT_ROOT + '/_rate_video', {
+            rating: '5',
         }, function(data) {
-            var fileList = '';
             if(data.result.length===0){
-              console.log('no files')
-              $('#files').html('no files');
+              console.log('no response')
             }else{
-              $.each(data.result,function(i, val){
-                  fileList += '<a onclick="play_video(\''+val+'\')">'+val+'</a><br>';
-              });
-              $('#files').html(fileList);
+              alert('done')
             }
         });
     }
