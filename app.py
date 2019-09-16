@@ -84,17 +84,18 @@ def telnet_connect():
 
 def telnet_command(cmd):
     global tn
-    print(tn)
+
     if(tn == None):
         telnet_connect()
 
     cmd += '\n'
-    print('running cmd: ' + str(cmd))
+    # print('running cmd: ' + str(cmd))
 
     # if connection gone re-connect and re-call this function once we have an active connection
     # todo: what if re-connect fails?  does this just start hammering reconnect?
     try:
         # todo: log all of these
+        # todo: cache these so multiple clients don't hammer the shit out of vlc
         tn.write(cmd.encode("utf-8"))
     except:
         telnet_connect()
@@ -149,10 +150,20 @@ def get_song():
               isn't allowed to progress through it's own playlist
     '''
     res = {}
-    res["title"] = '' # find by filename
-    res["filename"] = telnet_command('get_title').strip()
-    res["played"] = int(telnet_command('get_time').strip())
-    res["length"] = int(telnet_command('get_length').strip())
+    try:
+        res["title"] = '' # find by filename
+        res["filename"] = telnet_command('get_title').strip()
+        print()
+        time = telnet_command('get_time').strip()
+        if(time != ''):
+            res["played"] = int(time)
+        else:
+            res["played"] = 0
+        
+        res["length"] = int(telnet_command('get_length').strip())
+        res["playing"] = int(telnet_command('is_playing').strip())
+    except Exception:
+        pass
 
     return jsonify(result=res)
 
@@ -219,7 +230,8 @@ def get_queue():
         SELECT 
             queue.videoId, 
             video.title, 
-            video.rating 
+            video.rating,
+            queue.addedBy 
         FROM 
             queue 
         left join 

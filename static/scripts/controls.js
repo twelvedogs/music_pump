@@ -17,6 +17,7 @@ $(function() {
   
   get_song();
   get_list();
+  get_queue();
 
   // this actually does get called
   if($('#username').val()===''){
@@ -54,7 +55,8 @@ function raw_command(cmd, callback){
         if(data.result.length===0){
           console.log('no data')
         }else{
-          callback(data.result);
+          if(callback)
+            callback(data.result);
           console.log(data.result);
         }
     });
@@ -75,6 +77,43 @@ function isEmptyOrSpaces(str){
   return str === null || str.match(/^\s*$/) !== null;
 }
 
+var playing = 0;
+var playTimer = null;
+var hardUpdateTime = 5000;
+var softUpdateTime = 500; // seconds, vlc works in seconds so more precision probably unrequired
+var lastCalled = (new Date).getTime();
+
+var length = 0;
+var played = 0;
+
+function update_time(){
+  var crntTime = (new Date).getTime();
+
+  if(crntTime> (lastCalled + hardUpdateTime)){
+    get_song();
+    lastCalled = crntTime;
+  }else{
+    played += softUpdateTime / 1000;
+  }
+
+  set_progress();
+  
+  playTimer = setTimeout(update_time, softUpdateTime);
+}
+
+function set_progress(){
+  $('#video_progress').css('width','' + played/length * 100 + '%');
+}
+
+function set_play_state(p){
+  playing = p;
+  if(playing && !playTimer){
+    console.log('starting timeout')
+    playTimer = setTimeout(update_time, softUpdateTime); // 1000 = 1 sec
+  }else if(!playing && playTimer){
+    clearTimeout(playTimer);
+  }
+}
 function get_song(){
     $.getJSON($SCRIPT_ROOT + '/_get_song', {
       }, function(data) {
@@ -85,8 +124,18 @@ function get_song(){
         }else{
           console.log(data.result);
           $('#currentlyPlaying').val(data.result.filename);
+
           $('#song_length').val(data.result.length);
           $('#song_played').val(data.result.played);
+          length = data.result.length;
+          played = data.result.played
+          $('#video_progress').prop('aria-valuemax', data.result.length);
+          $('#video_progress').prop('aria-valuenow', data.result.played);
+          
+          set_progress();
+
+          set_play_state(data.result.playing);
+
         }
       });
 }
