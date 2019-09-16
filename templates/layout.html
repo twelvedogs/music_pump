@@ -5,8 +5,45 @@
 <script type=text/javascript>
   var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
 </script>
+
+
 <style>
-  a {color: blue; cursor:pointer;}
-</style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    /* rename maybe to .searchableUL and .searchableULInput */
+    .fileSearch {
+      background-image: url('/css/searchicon.png');
+      background-position: 10px 12px;
+      background-repeat: no-repeat;
+      width: 100%;
+      font-size: 16px;
+      padding: 12px 20px 12px 40px;
+      border: 1px solid #ddd;
+      margin-bottom: 12px;
+    }
+    
+    .fileUL {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .fileUL li a {
+      border: 1px solid #ddd;
+      margin-top: -1px; /* Prevent double borders */
+      background-color: #f6f6f6;
+      padding: 12px;
+      text-decoration: none;
+      font-size: 18px;
+      color: black;
+      display: block
+    }
+    
+    .fileUL li a:hover:not(.header) {
+      background-color: #eee;
+    }
+    </style>
 {% block body %}{% endblock %}
 

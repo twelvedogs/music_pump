@@ -64,14 +64,13 @@ class Video:
             
 
 
-
+# telnet connection
 tn = None
-pause_toggle = False
 def telnet_connect():
     global tn
 
     host = 'localhost' # ip/hostname
-    password = 'test' # 
+    password = 'test' # password, just jams it in once we're connected
     port = '23'
 
     print('Connecting', host, port)
@@ -86,27 +85,28 @@ def telnet_command(cmd):
 
     cmd += '\n'
     print('running cmd: ' + str(cmd))
+
+    # if connection gone re-connect and re-call this function once we have an active connection
+    # todo: what if re-connect fails?  does this just start hammering reconnect?
     try:
-        #todo: try catch here for connection reset and re-connect
+        # todo: log all of these
         tn.write(cmd.encode("utf-8"))
     except:
         telnet_connect()
         telnet_command(cmd)
 
-    # just get whatever is in the buffer
-    # not sure what to do about time outs here
-    # response = str(tn.read_until(b'\n'))
-    # print('response: ', response)
+    # get whatever the response is up until newline> as that's the vlc server's prompt
     response = tn.read_until(b'\r\n>', timeout=2).decode('utf-8')
-    response = response.replace('>', '') # might need to remove an endline
+    response = response.replace('>', '') 
     print('response: ', response) 
 
     return response
 
 @app.route('/_get_length')
 def get_length():
-    '''play song by id, filename or title
-        currently using the vlc rpc telnet interface, start vlc with "vlc --rc-host localhost:23"
+    '''
+        get the length of the currently playing track
+        used for slider animation and 
     '''
     length = telnet_command('get_length')
 
@@ -124,16 +124,23 @@ def play_pause():
 def play_video():
     '''play song by id, filename or title'''
     video = load_video(request.args.get('videoId'))
-    print(video)
+    # print(video)
     longpath = 'file:///' + (path + video.filename).replace('\\','/')
-    print(longpath)
+    # print(longpath)
     telnet_command('add '+ longpath + '')
+
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, 'unknown user'))
 
     return jsonify(result='Playing ' + video.filename)
 
 @app.route('/_get_song')
 def get_song():
-    '''not sure, maybe get current song info'''
+    ''' get current song but look it up in db to get extra info and pass it all back
+        need: length, rating, who added
+    '''
     
     return jsonify(result=telnet_command('get_title'))
 
@@ -144,6 +151,7 @@ def raw_command():
 
     return jsonify(result=telnet_command(cmd))
 
+
 def add_video_to_database(title, filename, addedBy):
     '''add new video record into db'''
     conn = sqlite3.connect('video.db')
@@ -152,9 +160,9 @@ def add_video_to_database(title, filename, addedBy):
         # todo: check if filename exists here and overwrite? if it does
         c.execute('insert into video (title, filename, addedBy) values (?, ?, ?)', (title, filename, addedBy))
         
-        print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
-        for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
-            print(row)
+        # print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
+        # for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
+        #     print(row)
         
         return jsonify(result=True)
 
@@ -273,7 +281,7 @@ def download_video():
 
     filename = video['title'] + ' - ' + video['id'] + '.' + video['ext']
     print('guessing filename should be: ' + filename)
-
+    # todo: strip stuff like (Official Video) from title
     add_video_to_database(video['title'], filename, addedBy)
 
     return jsonify(result=video) 
