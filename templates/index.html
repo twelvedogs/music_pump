@@ -1,8 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<script src="/static/scripts/controls.js"></script>
-
 <h1></h1>
 
 <ol>
@@ -26,18 +24,33 @@
 <button class="playerControls" onclick="play_pause()" >Play/Pause</button>
 <button class="playerControls" onclick="raw_command('next')" >Next</button>
 <button class="playerControls" onclick="get_song()" >song info</button>
+<button class="playerControls" onclick="get_queue()" >reload queue</button>
 
 <p>Add Url</p>
-<input type=text size=50 id=youtubeUrl name=youtubeUrl><br>
-<button onclick="download_video()" >download</button><br>
-<text id=rating>5</text><button onclick="rate_video($('id').val())" >rate</button><br>
+<input type=text size=50 id=youtubeUrl name=youtubeUrl><br> 
+<button class="btn btn-primary" onclick="download_video()" >download</button><br>
+<text id=rating>5</text><button onclick="rate_video($('id').val())" class="btn btn-primary" >rate</button><br>
 <button onclick="get_list()" >Get File List</button>
 <p>Current Queue</p>
 <div id="queue"></div>
 <p>All Files</p>
 <div id="files"></div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" 
+   crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" 
+  integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" 
+  integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+<script type=text/javascript src="/static/scripts/controls.js"></script>
+
 <script>
-  get_song();
-  get_list()
+  // page load
+  $(function(){
+    get_song();
+    get_list();
+  });
 </script>
+
 {% endblock %}

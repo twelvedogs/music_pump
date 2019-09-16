@@ -44,9 +44,9 @@ var myPlayer = null;
 
     function get_song(){
         $.getJSON($SCRIPT_ROOT + '/_get_song', {
-              // url: $('#youtubeUrl').val(),
           }, function(data) {
-              if(data.result.length===0){
+            console.log(data)
+              if(data === null || data.result === null || data.result.length === 0){
                 console.log('no data')
               }else{
                 console.log(data.result);

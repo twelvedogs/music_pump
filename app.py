@@ -8,6 +8,9 @@
         remove songs via mv to deleted directory
         rate songs into database
         play songs via vlc (or possibly but preferably not omxplayer) instance on this machine (or remote machine!)
+    
+    todo: set renderer to chromecasts via command line
+    todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
 '''
 from flask import Flask, jsonify, render_template, request
 import sqlite3
@@ -68,23 +71,35 @@ def telnet_connect():
     global tn
 
     host = 'localhost' # ip/hostname
-    # password = '' # currently not set
+    password = 'test' # 
     port = '23'
 
     print('Connecting', host, port)
     tn = telnetlib.Telnet(host, port) # default telnet: 23
+    telnet_command(password)
 
 def telnet_command(cmd):
     global tn
+    print(tn)
     if(tn == None):
         telnet_connect()
+
     cmd += '\n'
     print('running cmd: ' + str(cmd))
-    tn.write(cmd.encode("utf-8"))
+    try:
+        #todo: try catch here for connection reset and re-connect
+        tn.write(cmd.encode("utf-8"))
+    except:
+        telnet_connect()
+        telnet_command(cmd)
 
-     # just get whatever is in the buffer
-    response = str(tn.read_eager())
-    print('response: ', response)
+    # just get whatever is in the buffer
+    # not sure what to do about time outs here
+    # response = str(tn.read_until(b'\n'))
+    # print('response: ', response)
+    response = tn.read_until(b'\r\n>', timeout=2).decode('utf-8')
+    response = response.replace('>', '') # might need to remove an endline
+    print('response: ', response) 
 
     return response
 
@@ -110,7 +125,9 @@ def play_video():
     '''play song by id, filename or title'''
     video = load_video(request.args.get('videoId'))
     print(video)
-    telnet_command('add "'+ path + video.filename + '"')
+    longpath = 'file:///' + (path + video.filename).replace('\\','/')
+    print(longpath)
+    telnet_command('add '+ longpath + '')
 
     return jsonify(result='Playing ' + video.filename)
 
@@ -122,7 +139,7 @@ def get_song():
 
 @app.route('/_raw_command')
 def raw_command():
-    '''not sure, maybe get current song info'''
+    ''' just a test func, maybe get rid of it later '''
     cmd = request.args.get('cmd')
 
     return jsonify(result=telnet_command(cmd))
@@ -132,7 +149,7 @@ def add_video_to_database(title, filename, addedBy):
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
-        # todo: check if filename exists here and overwrite if it does
+        # todo: check if filename exists here and overwrite? if it does
         c.execute('insert into video (title, filename, addedBy) values (?, ?, ?)', (title, filename, addedBy))
         
         print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
@@ -232,8 +249,9 @@ def download_video():
     url = request.args.get('url', '', type=str)
     addedBy = request.args.get('addedBy', '', type=str)
 
-    # need to specify download format of h264 for rpi
-    # need to catch malformed url
+    # todo: need to specify download format of h264 for rpi
+    # todo: need to catch malformed url
+    # todo: check if folder exists probably
     ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s'})
 
     with ydl:
@@ -252,21 +270,13 @@ def download_video():
         video = result
 
     print(video)
-    #video_url = video['url']
+
     filename = video['title'] + ' - ' + video['id'] + '.' + video['ext']
     print('guessing filename should be: ' + filename)
 
     add_video_to_database(video['title'], filename, addedBy)
 
     return jsonify(result=video) 
-
-# @app.route('/_add_numbers')
-# def add_numbers():
-#     '''Add two numbers server side, ridiculous but well...'''
-#     a = request.args.get('a', 0, type=int)
-#     b = request.args.get('b', 0, type=int)
-#     return jsonify(result=a + b +1)
-
 
 @app.route('/')
 def index():
