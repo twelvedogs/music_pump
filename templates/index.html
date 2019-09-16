@@ -20,8 +20,8 @@
       <div class="col-sm">
         song length <input type="text" id="song_length" placeholder="not set">
         <button type="button" class="btn btn-secondary playerControls" onclick="get_length()" >info</button><br>
-        time left <input type="text" id="song_remaining" placeholder="not set">
-        <button type="button" class="btn btn-secondary playerControls" onclick="raw_command('get_time', function(resp){$('#song_remaining').val(resp)})" >info</button><br>
+        time elapsed <input type="text" id="song_played" placeholder="not set">
+        <button type="button" class="btn btn-secondary playerControls" onclick="raw_command('get_time', function(resp){$('#song_played').val(resp)})" >info</button><br>
         
 
         <input type="text" class="form-control form-control-lg" id="currentlyPlaying">
@@ -30,14 +30,13 @@
             <button type="button" class="btn btn-secondary playerControls" onclick="raw_command('pause')" >Play/Pause</button>
             <button type="button" class="btn btn-secondary playerControls" onclick="raw_command('next')" >Next</button>
             <button type="button" class="btn btn-secondary playerControls" onclick="get_song()" >info</button>
-            <button type="button" class="btn btn-secondary playerControls" onclick="get_queue()" >reload queue</button>
         </div>
 
         <div>
-            <h3>Main file list, click to enque <button class="btn btn-primary" onclick="get_list()" >Refresh File List</button></h3>
+            <h3>Main file list, click to enque &amp; play for now <button class="btn btn-primary" onclick="get_list()" >Refresh File List</button></h3>
             <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
-              placeholder="Search for names.." title="Type in a name">
-            <ul id="videoUL" class="fileUL"></ul>
+              placeholder="Search..." title="Type in a name">
+            <ul id="videoUL" class="fileUL list-group"></ul>
         </div>
   
       </div> 
@@ -60,8 +59,10 @@
   </div>
 
   <ol id="myUL">
-      <li><a href="#">rating interface (right click menu?)</a></li>
       <li><a href="#">refresh currently playing</a></li>
+      <li><a href="#">block/queue downloads while currently downloading</a></li>
+
+      <li><a href="#">rating interface (right click menu?)</a></li>
       <li><a href="#">slider showing song position</a></li>
       <li><a href="#">do initial layout</a></li>
       <li><a href="#">implement & show queue</a></li>

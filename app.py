@@ -7,7 +7,7 @@
         add songs via youtube-dl
         remove songs via mv to deleted directory
         rate songs into database
-        play songs via vlc (or possibly but preferably not omxplayer) instance on this machine (or remote machine!)
+        play songs via vlc, locally or remotely
     
     todo: set renderer to chromecasts via command line
     todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
@@ -22,9 +22,13 @@ import youtube_dl
 app = Flask(__name__)
 
 path = 'F:\\code\\music_pump\\downloads\\'
+# todo: global statuses so a cache of them can be hit up without
+#       talking to vlc etc
+downloading = False
+crntVideoId = -1
+
 
 def load_video(videoId = 0):
-    print('videoId', videoId)
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
@@ -47,12 +51,13 @@ class Video:
         self.videoType = videoType
         self.addedBy = addedBy
     def __str__(self):
-        return self.title + ' ' + self.filename + ' ' + str(self.videoId)
+        return '{ videoId: \"' + str(self.videoId)  + '\", title: \"' + self.title  + '\", filename: \"' + self.filename + '\"}'
 
     def save(self):
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
+            # dunno if i can even do this, probably not since the object has functions which i don't htink are directly serialisable
             if(self.videoId>0):
                 c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy where videoId=:videoId', 
                     self)
@@ -124,15 +129,15 @@ def play_pause():
 def play_video():
     '''play song by id, filename or title'''
     video = load_video(request.args.get('videoId'))
-    # print(video)
+    username = load_video(request.args.get('username'))
+
     longpath = 'file:///' + (path + video.filename).replace('\\','/')
-    # print(longpath)
     telnet_command('add '+ longpath + '')
 
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
-        c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, 'unknown user'))
+        c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, username))
 
     return jsonify(result='Playing ' + video.filename)
 
@@ -140,9 +145,16 @@ def play_video():
 def get_song():
     ''' get current song but look it up in db to get extra info and pass it all back
         need: length, rating, who added
+        todo: theoretically the script should know this before it asks as long as vlc
+              isn't allowed to progress through it's own playlist
     '''
-    
-    return jsonify(result=telnet_command('get_title'))
+    res = {}
+    res["title"] = '' # find by filename
+    res["filename"] = telnet_command('get_title').strip()
+    res["played"] = int(telnet_command('get_time').strip())
+    res["length"] = int(telnet_command('get_length').strip())
+
+    return jsonify(result=res)
 
 @app.route('/_raw_command')
 def raw_command():
@@ -240,16 +252,25 @@ def list_videos():
         videos = []
 
         # dunno if this can be simplified
-        for row in c.execute('SELECT videoId, title, rating FROM video ORDER BY dateAdded desc'):
+        for row in c.execute('SELECT videoId, title, rating, addedBy FROM video ORDER BY dateAdded desc'):
             video = {}
             video['videoId'] = row[0]
             video['title'] = row[1]
             video['rating'] = row[2]
+            video['addedBy'] = row[3]
 
             videos.append(video)
 
         return jsonify(result=videos)
 
+
+def ydlhook(s):
+    ''' just printing atm, need to pass back to clients '''
+    try:
+        if(s['status']!='finished'):
+            print('ydlhook: ' + s['_percent_str'])
+    except:
+        print('ydlhook failed: ', s)
 
 @app.route('/_download_video')
 def download_video():
@@ -261,7 +282,7 @@ def download_video():
     # todo: need to catch malformed url
     # todo: check if folder exists probably
     ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s'})
-
+    ydl.add_progress_hook(ydlhook)
     with ydl:
         result = ydl.extract_info(
             url
@@ -277,7 +298,7 @@ def download_video():
         # Just a video
         video = result
 
-    print(video)
+    # print(video)
 
     filename = video['title'] + ' - ' + video['id'] + '.' + video['ext']
     print('guessing filename should be: ' + filename)

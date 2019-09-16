@@ -62,7 +62,6 @@ function raw_command(cmd, callback){
 
 function play_pause(){
     $.getJSON($SCRIPT_ROOT + '/_play_pause', {
-          // url: $('#youtubeUrl').val(),
       }, function(data) {
           if(data.result.length===0){
             console.log('no data')
@@ -80,12 +79,14 @@ function get_song(){
     $.getJSON($SCRIPT_ROOT + '/_get_song', {
       }, function(data) {
         console.log('response', data)
-        if(data === null || isEmptyOrSpaces(data.result)){
+        if(data === null){
           console.log('no data')
           $('#currentlyPlaying').val('Nothing playing');
         }else{
           console.log(data.result);
-          $('#currentlyPlaying').val(data.result);
+          $('#currentlyPlaying').val(data.result.filename);
+          $('#song_length').val(data.result.length);
+          $('#song_played').val(data.result.played);
         }
       });
 }
@@ -128,8 +129,6 @@ function play_video(id){
 }
 
 function download_video(){
-  console.log('attempting to dl: ' + $('#youtubeUrl').val())
-  
   $.getJSON($SCRIPT_ROOT + '/_download_video', {
         url: $('#youtubeUrl').val(),
         addedBy: $('#username').val(),
@@ -145,7 +144,6 @@ function download_video(){
 /** get the current queue */
 function get_queue(){
     $.getJSON($SCRIPT_ROOT + '/_get_queue', {
-        // test: 'test',
     }, function(data) {
         var fileList = '';
 
@@ -168,9 +166,8 @@ function get_queue(){
  */
 function get_list(){
     $.getJSON($SCRIPT_ROOT + '/_list_videos', {
-        test: 'test',
+        // test: 'test',
     }, function(data) {
-        var fileList = '';
         var videoULLi = '';
         if(data.result.length===0) {
           console.log('no files')
@@ -179,11 +176,9 @@ function get_list(){
           // create the option html and just stuff it in the control
           // #files is going away
           $.each(data.result, function(i, val) {
-            videoULLi += '<li><a href="#" onclick="play_video(\''+val.videoId+'\')">' + val.title + ' - click to enque again play for now</a></li>'
-            //fileList += '<a onclick="play_video(\''+val.videoId+'\')">'+val.title+'</a><br>';
+            videoULLi += '<li class="align-items-center"><a href="#" onclick="play_video(\''+val.videoId+'\')">' + val.title + ' ' + val.addedBy + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a></li>'
           });
           $('#videoUL').html(videoULLi);
-          //$('#files').html(fileList);
         }
     });
 }
