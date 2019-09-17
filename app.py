@@ -36,7 +36,7 @@ def load_video(videoId = 0):
         for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
             video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
             # videos += video
-        return video
+            return video
 
 class Video:
     def __init__(self, videoId, title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy):
@@ -104,7 +104,7 @@ def telnet_command(cmd):
     # get whatever the response is up until newline> as that's the vlc server's prompt
     response = tn.read_until(b'\r\n>', timeout=2).decode('utf-8')
     response = response.replace('>', '') 
-    print('response: ', response) 
+    print('telnet: ', cmd, response) 
 
     return response
 
@@ -129,19 +129,22 @@ def play_pause():
 @app.route('/_play_video')
 def play_video():
     '''play song by id, filename or title'''
+    # load the video record by the videoId provided
     video = load_video(request.args.get('videoId'))
-    username = load_video(request.args.get('username'))
+    addedBy = request.args.get('addedBy')
 
+    print('query: ', video, addedBy)
     longpath = 'file:///' + (path + video.filename).replace('\\','/')
     telnet_command('add '+ longpath + '')
 
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
-        c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, username))
+        c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, addedBy))
 
     return jsonify(result='Playing ' + video.filename)
 
+songInfoResult = {}
 @app.route('/_get_song')
 def get_song():
     ''' get current song but look it up in db to get extra info and pass it all back
@@ -149,11 +152,11 @@ def get_song():
         todo: theoretically the script should know this before it asks as long as vlc
               isn't allowed to progress through it's own playlist
     '''
-    res = {}
+    global songInfoResult
     try:
+        res={}
         res["title"] = '' # find by filename
         res["filename"] = telnet_command('get_title').strip()
-        print()
         time = telnet_command('get_time').strip()
         if(time != ''):
             res["played"] = int(time)
@@ -162,10 +165,14 @@ def get_song():
         
         res["length"] = int(telnet_command('get_length').strip())
         res["playing"] = int(telnet_command('is_playing').strip())
-    except Exception:
-        pass
 
-    return jsonify(result=res)
+        # only update if we made it
+        songInfoResult = res
+        #songInfoResult["lastUpdated"] = time
+    except Exception:
+        print('Failed to get current song info from VLC')
+
+    return jsonify(result=songInfoResult)
 
 @app.route('/_raw_command')
 def raw_command():

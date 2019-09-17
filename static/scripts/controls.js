@@ -22,11 +22,13 @@ $(function() {
   // this actually does get called
   if($('#username').val()===''){
     username ='';
-    u1s = ['red','green','purple','orange','yellow','pink','white','black','blue','grey']
-    u2s = ['womble','cat','bear','tree','wombat','skunk','elephant','badger','warrior','dog','rabbit','fish','wolf']
+    u1s = ['red','green','purple','orange','salmon','pink','brick','violet','blue','grey','fuchsia','gold'
+          ,'indigo','ivory','cyan']
+    u2s = ['womble','cat','bear','tree','wombat','skunk','elephant','badger','warrior','dog','rabbit','fish'
+          ,'wolf','ant','antelope','ape','baboon','bee','bobcat','buffalo','cobra','coyote','ferret','emu']
 
-    username = u1s[getRandomInt(0,u1s.length)] + ' ' + u2s[getRandomInt(0,u1s.length)];
-    console.log('generated ' + username);
+    username = u1s[getRandomInt(0,u1s.length - 1)] + ' ' + u2s[getRandomInt(0,u1s.length-1)];
+    // console.log('generated ' + username);
     $('#username').val(username);
   }
     //alert('page loaded');
@@ -79,8 +81,8 @@ function isEmptyOrSpaces(str){
 
 var playing = 0;
 var playTimer = null;
-var hardUpdateTime = 5000;
-var softUpdateTime = 500; // seconds, vlc works in seconds so more precision probably unrequired
+var hardUpdateTime = 5000; // 5 seconds
+var softUpdateTime = 500; // .5 seconds
 var lastCalled = (new Date).getTime();
 
 var length = 0;
@@ -89,6 +91,7 @@ var played = 0;
 function update_time(){
   var crntTime = (new Date).getTime();
 
+  // don't do a full update too often, just update the progress bar
   if(crntTime> (lastCalled + hardUpdateTime)){
     get_song();
     lastCalled = crntTime;
@@ -163,6 +166,7 @@ function play_video(id){
   
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
+        addedBy: $('#username').val(),
       }, function(data) {
           if(data.result.length===0){
             console.log('no data')
