@@ -123,7 +123,7 @@ function set_play_state(p){
   }
 }
 
-/** rename get_video */
+/** rename to get_video */
 function get_song(){
     $.getJSON($SCRIPT_ROOT + '/_get_song', {
       }, function(data) {
@@ -145,29 +145,34 @@ function get_song(){
       });
 }
 
-/**get currently playing video's length from server */
-// function get_length(){
-//     $.getJSON($SCRIPT_ROOT + '/_get_length', {
-//       }, function(data) {
-//           if(data.result.length===0){
-//             console.log('no data')
-//           }else{
-//             $('#song_length').val(data.result);
-//           }
-//       });
-// }
+function clean_video_list(){
+  $.getJSON($SCRIPT_ROOT + '/_clean_video_list', {
+
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data');
+          $.growl.error({ message: 'Nothing back'});
+        }else{
+          $.growl.notice({ message: 'We did it bro, we totally pulled it off' });
+          // probably could return this from _play_video, dunno if that make sense
+          get_list();
+          console.log(data.result);
+        }
+    });
+}
 
 function play_video(id){
-    console.log('attempting to play: ' + id)
-    
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
         addedBy: $('#username').val(),
       }, function(data) {
           if(data.result.length===0){
-            console.log('no data')
+            console.log('no data');
+            $.growl.error({ message: 'Couldn\'t add'});
           }else{
-            $.growl.notice({ message: 'Adding ' });
+            $.growl.notice({ message: 'Adding ' + data.result.title });
+            // probably could return this from _play_video, dunno if that make sense
+            get_list();
             console.log(data.result);
           }
       });

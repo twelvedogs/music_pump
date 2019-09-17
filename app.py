@@ -103,8 +103,9 @@ def telnet_command(cmd):
 
     # get whatever the response is up until newline> as that's the vlc server's prompt
     response = tn.read_until(b'\r\n>', timeout=2).decode('utf-8')
-    response = response.replace('>', '') 
-    print('telnet: ', cmd, response) 
+    response = response.replace('>', '')
+
+    # print('telnet: ', cmd, response) 
 
     return response
 
@@ -142,7 +143,8 @@ def play_video():
         c = conn.cursor()
         c.execute('insert into queue (videoId, addedBy) values (?,?)', (video.videoId, addedBy))
 
-    return jsonify(result='Playing ' + video.filename)
+
+    return jsonify(result={'title': video.title})
 
 songInfoResult = {}
 @app.route('/_get_song')
@@ -310,6 +312,40 @@ def ydlhook(s):
     except:
         print('ydlhook failed: ', s)
 
+@app.route('/_clean_video_list')
+def clean_video_list():
+    ''' cull bad entries and other cleanup stuff'''
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        prevTitle=''
+        for row in c.execute('''
+        select video.videoId, clone.videoId, clone.title
+            from video 
+            left join video as clone 
+            on video.title=clone.title 
+                and video.videoId!=clone.videoId
+        where clone.videoId is not null 
+        order by video.videoId asc'''):
+
+            video = {}
+            video['videoId'] = row[0]
+            video['cloneId'] = row[1]
+            video['title'] = row[2]
+
+            # close but no cigar, this will delete the first one if there's more than 2 similar records
+            if(video['title'] != prevTitle):
+                print('don\'t delete', video['videoId'])
+                prevTitle=video['title']
+                pass
+            else:
+                #c.execute('delete from video where videoId=?',(video['videoId'],))
+                print('delete', video['videoId'])
+
+            print('clone video found', video)
+
+    return jsonify(result=True)
+
 @app.route('/_download_video')
 def download_video():
     '''download video and set default rating in db'''
@@ -341,13 +377,16 @@ def download_video():
         video = result
 
     # not sure where to find the actual filename it was saved as
-    filename = (video['title'] + ' - ' + video['id'] + '.' + video['ext']).replace('"','\'')
-    
+    # todo: this is dumb
+    filename = (video['title'] + ' - ' + video['id'] + '.' + video['ext']).replace('"','\'').replace('/','_')
+
     print('guessing filename should be: ' + filename)
     # todo: strip stuff like (Official Video) from title
-    add_video_to_database(video['title'], filename, addedBy)
+    # todo: this is dumb
+    title = video['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
+    add_video_to_database(title, filename, addedBy)
 
-    return jsonify(result=video) 
+    return jsonify(result=video)
 
 @app.route('/')
 def index():
