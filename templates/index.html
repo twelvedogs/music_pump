@@ -8,7 +8,8 @@
         <input type="text" class="form-control form-control-lg"  id="username" placeholder="Need to auto-generate username here" >
     </div> 
     <div class="col-sm">
-        <input type=text size=50 id=youtubeUrl name=youtubeUrl placeholder="Enter URL here, please only include url before &list= (for now)"><br> 
+        <input type="text" class="form-control form-control-lg"  id="youtubeUrl" 
+        name="youtubeUrl" placeholder="Enter URL here"><br> 
         <button class="btn btn-primary" onclick="download_video()" >download</button><br>
     </div>
   </div>
@@ -39,6 +40,7 @@
       </div> 
       <div class="col-sm">
           <button class="btn btn-primary" onclick="get_queue()" >Refresh Queue</button>
+          <button class="btn btn-primary" onclick="clear_queue()" >Clear Queue</button>
           <div id="queue"></div>
       </div>
   </div>
@@ -68,6 +70,7 @@
       <li><a href="#">list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list</a></li>
       <li><a href="#">add function to scan directory/s for missing files</a></li>
       <li><a href="#">use web sockets to maintain status</a></li>
+      <li><a href="#">check if videojs is worth the effort</a></li>
   </ul>
   
   <script>

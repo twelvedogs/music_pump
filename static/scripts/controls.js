@@ -29,6 +29,7 @@ $(function() {
 
     username = u1s[getRandomInt(0,u1s.length - 1)] + ' ' + u2s[getRandomInt(0,u1s.length-1)];
     // console.log('generated ' + username);
+    $.growl.notice({ message: "Assigning random username!" });
     $('#username').val(username);
   }
     //alert('page loaded');
@@ -79,6 +80,7 @@ function isEmptyOrSpaces(str){
   return str === null || str.match(/^\s*$/) !== null;
 }
 
+// todo: should be just stuffed in an object or something
 var playing = 0;
 var playTimer = null;
 var hardUpdateTime = 5000; // 5 seconds
@@ -88,6 +90,7 @@ var lastCalled = (new Date).getTime();
 var length = 0;
 var played = 0;
 
+/** manage times since progress checked and updated */
 function update_time(){
   var crntTime = (new Date).getTime();
 
@@ -108,15 +111,19 @@ function set_progress(){
   $('#video_progress').css('width','' + played/length * 100 + '%');
 }
 
+/** set up timer to refresh song status */
 function set_play_state(p){
   playing = p;
   if(playing && !playTimer){
-    console.log('starting timeout')
+    $.growl.notice({ message: "Starting playstate update timer" });
     playTimer = setTimeout(update_time, softUpdateTime); // 1000 = 1 sec
   }else if(!playing && playTimer){
     clearTimeout(playTimer);
+    $.growl.notice({ message: "Stopping playstate update timer" });
   }
 }
+
+/** rename get_video */
 function get_song(){
     $.getJSON($SCRIPT_ROOT + '/_get_song', {
       }, function(data) {
@@ -138,32 +145,21 @@ function get_song(){
       });
 }
 
-function get_length(){
-    $.getJSON($SCRIPT_ROOT + '/_get_length', {
-      }, function(data) {
-          if(data.result.length===0){
-            console.log('no data')
-          }else{
-            $('#song_length').val(data.result);
-            console.log(data.result);
-          }
-      });
-}
-// function get_remaining(){
-//   $.getJSON($SCRIPT_ROOT + '/_get_remaining', {
-//     }, function(data) {
-//         if(data.result.length===0){
-//           console.log('no data')
-//         }else{
-//           $('#song_length').val(data.result);
-//           console.log(data.result);
-//         }
-//     });
+/**get currently playing video's length from server */
+// function get_length(){
+//     $.getJSON($SCRIPT_ROOT + '/_get_length', {
+//       }, function(data) {
+//           if(data.result.length===0){
+//             console.log('no data')
+//           }else{
+//             $('#song_length').val(data.result);
+//           }
+//       });
 // }
 
 function play_video(id){
     console.log('attempting to play: ' + id)
-  
+    
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
         addedBy: $('#username').val(),
@@ -171,22 +167,38 @@ function play_video(id){
           if(data.result.length===0){
             console.log('no data')
           }else{
+            $.growl.notice({ message: 'Adding ' });
             console.log(data.result);
           }
       });
 }
 
 function download_video(){
+  $.growl.notice({ message: 'Downloading ' + $('#youtubeUrl').val() });
   $.getJSON($SCRIPT_ROOT + '/_download_video', {
         url: $('#youtubeUrl').val(),
         addedBy: $('#username').val(),
     }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
-        }else{
-          console.log(data.result);
-        }
+      
+      if(data.result.length===0){
+        $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
+      }else{
+        $.growl.notice({ message: 'Succeeded downloading ' + data.result.title });
+        console.log(data.result);
+      }
     });
+}
+
+function clear_queue(){
+  $.getJSON($SCRIPT_ROOT + '/_clear_queue', {
+  }, function(data) {
+      if(data.result) {
+        $.growl.notice({ message: "Cleared Queue" });
+        $('#queue').html('');
+      } else {
+        $.growl.error({ message: "Something broke clearing queue" });
+      }
+  });
 }
 
 /** get the current queue */

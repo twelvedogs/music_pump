@@ -176,7 +176,7 @@ def get_song():
 
 @app.route('/_raw_command')
 def raw_command():
-    ''' just a test func, maybe get rid of it later '''
+    ''' pass command directly to VLC, maybe get rid of it later '''
     cmd = request.args.get('cmd')
 
     return jsonify(result=telnet_command(cmd))
@@ -222,6 +222,23 @@ def add_to_queue():
         c.execute('insert into queue (videoId, addedBy) values (?,?)', (videoId, addedBy))
         return jsonify(result=True)
 
+@app.route('/_clear_queue')
+def clear_queue():
+    '''return current queue to client'''
+
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        # select the queue and add extra info from the video table
+        queueSql = 'delete from queue'
+
+        try:
+            c.execute(queueSql)
+            return jsonify(result=True)
+        except:
+            return jsonify(result=False)
+
+
 @app.route('/_get_queue')
 def get_queue():
     '''return current queue to client'''
@@ -260,6 +277,8 @@ def get_queue():
 
         return jsonify(result=videos)
 
+
+
 @app.route('/_list_videos')
 def list_videos():
     '''return big video list to client'''
@@ -297,6 +316,10 @@ def download_video():
     url = request.args.get('url', '', type=str)
     addedBy = request.args.get('addedBy', '', type=str)
 
+    isPlaylist = url.find('&list=')
+    if(isPlaylist>-1):
+        url=url[0:isPlaylist]
+
     # todo: need to specify download format of h264 for rpi
     # todo: need to catch malformed url
     # todo: check if folder exists probably
@@ -317,9 +340,9 @@ def download_video():
         # Just a video
         video = result
 
-    # print(video)
-
-    filename = video['title'] + ' - ' + video['id'] + '.' + video['ext']
+    # not sure where to find the actual filename it was saved as
+    filename = (video['title'] + ' - ' + video['id'] + '.' + video['ext']).replace('"','\'')
+    
     print('guessing filename should be: ' + filename)
     # todo: strip stuff like (Official Video) from title
     add_video_to_database(video['title'], filename, addedBy)
@@ -334,4 +357,4 @@ def index():
 if __name__ == '__main__':
 
     app.debug = True
-    app.run()
+    app.run(host= '0.0.0.0', port=80)
