@@ -117,16 +117,11 @@ function set_play_state(p){
 function get_song(){
     $.getJSON($SCRIPT_ROOT + '/_get_song', {
       }, function(data) {
-        console.log('response', data)
         if(data === null){
-          console.log('no data')
           $('#currentlyPlaying').val('Nothing playing');
         }else{
-          console.log(data.result);
           $('#currentlyPlaying').val(data.result.filename);
 
-          $('#song_length').val(data.result.length);
-          $('#song_played').val(data.result.played);
           length = data.result.length;
           played = data.result.played
           $('#video_progress').prop('aria-valuemax', data.result.length);
