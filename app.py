@@ -13,6 +13,7 @@
     todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
 '''
 from flask import Flask, jsonify, render_template, request
+from pathlib import Path
 import sqlite3
 import os
 
@@ -38,6 +39,7 @@ def load_video(videoId = 0):
             # videos += video
             return video
 
+# this not being serialisable sucks balls
 class Video:
     def __init__(self, videoId, title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy):
         if(videoId > 0 ):
@@ -127,6 +129,19 @@ def play_pause():
     telnet_command('pause')
     return jsonify(result=True)
 
+
+
+
+@app.route('/_delete_video')
+def delete_video():
+    video = load_video(request.args.get('videoId'))
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        c.execute('delete from video where videoId =?', (video.videoId,))
+
+    return jsonify(result={'title': video.title})
+
 @app.route('/_play_video')
 def play_video():
     '''play song by id, filename or title'''
@@ -197,7 +212,6 @@ def add_video_to_database(title, filename, addedBy):
         #     print(row)
         
         return jsonify(result=True)
-
 @app.route('/_rate')
 def rate_video():
     # todo: validate input
@@ -292,12 +306,13 @@ def list_videos():
         videos = []
 
         # dunno if this can be simplified
-        for row in c.execute('SELECT videoId, title, rating, addedBy FROM video ORDER BY dateAdded desc'):
+        for row in c.execute('SELECT videoId, title, filename, rating, addedBy FROM video ORDER BY title desc'):
             video = {}
             video['videoId'] = row[0]
             video['title'] = row[1]
-            video['rating'] = row[2]
-            video['addedBy'] = row[3]
+            video['filename'] = row[2]
+            video['rating'] = row[3]
+            video['addedBy'] = row[4]
 
             videos.append(video)
 
@@ -359,11 +374,18 @@ def download_video():
     # todo: need to specify download format of h264 for rpi
     # todo: need to catch malformed url
     # todo: check if folder exists probably
-    ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s'})
+    ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s', 
+    'format': 'bestvideo+bestaudio/best', 
+    'getfilename': True, 
+    'keep': True, 
+    # 'restrictfilenames': True # makes it too hard to guess file name for now
+    }) 
+    # 'format': '137,136'}) # 'listformats': True
     ydl.add_progress_hook(ydlhook)
     with ydl:
         result = ydl.extract_info(
             url
+            
             # ,download=False # We just want to extract the info
         )
 
@@ -378,7 +400,30 @@ def download_video():
 
     # not sure where to find the actual filename it was saved as
     # todo: this is dumb
-    filename = (video['title'] + ' - ' + video['id'] + '.' + video['ext']).replace('"','\'').replace('/','_')
+    # badChars = '"\'/&'
+    filename = (video['title'] + ' - ' + video['id']).replace('"','\'').replace('/','_')
+
+    
+
+    # test if we had to merge the files into an mkv
+    # todo: clean up
+    try:
+        print('trying downloads/' + filename + '.' + video['ext'])
+        my_file = Path('downloads/'+ filename + '.' + video['ext']) # use os.join
+        if not my_file.is_file():
+            print(video['ext'] + ' not found trying mkv')
+        else:
+            filename += '.'+video['ext']
+
+        print('trying downloads/' + filename + '.mkv')
+        my_file = Path('downloads/' + filename + '.mkv') # use os.join
+        if not my_file.is_file():
+            print('file not found')
+        else:
+            filename += '.mkv'
+
+    except:
+        print('failed to find file')
 
     print('guessing filename should be: ' + filename)
     # todo: strip stuff like (Official Video) from title

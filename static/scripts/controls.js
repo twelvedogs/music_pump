@@ -161,6 +161,23 @@ function clean_video_list(){
     });
 }
 
+function delete_video(id){
+  $.getJSON($SCRIPT_ROOT + '/_delete_video', {
+      videoId: id,
+      addedBy: $('#username').val(),
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data');
+          $.growl.error({ message: 'Couldn\'t delete'});
+        }else{
+          $.growl.notice({ message: 'Deleting ' + data.result.title });
+          // probably could return this from _delete_video, dunno if that make sense
+          get_list();
+          console.log(data.result);
+        }
+    });
+}
+
 function play_video(id){
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
@@ -241,7 +258,7 @@ function get_list(){
           // create the option html and just stuff it in the control
           // #files is going away
           $.each(data.result, function(i, val) {
-            videoULLi += '<li class="align-items-center"><a href="#" onclick="play_video(\''+val.videoId+'\')">' + val.title + ' ' + val.addedBy + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a></li>'
+            videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a><button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button></li>'
           });
           $('#videoUL').html(videoULLi);
         }
