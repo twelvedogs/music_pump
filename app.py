@@ -27,7 +27,7 @@ path = 'F:\\code\\music_pump\\downloads\\'
 #       talking to vlc etc
 downloading = False
 crntVideoId = -1
-
+crntOrder = -1
 
 def load_video(videoId = 0):
     conn = sqlite3.connect('video.db')
@@ -149,10 +149,12 @@ def play_video():
     video = load_video(request.args.get('videoId'))
     addedBy = request.args.get('addedBy')
 
+    # add to vlc
     print('query: ', video, addedBy)
     longpath = 'file:///' + (path + video.filename).replace('\\','/')
     telnet_command('add '+ longpath + '')
 
+    #insert into queue
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
@@ -199,19 +201,20 @@ def raw_command():
     return jsonify(result=telnet_command(cmd))
 
 
-def add_video_to_database(title, filename, addedBy):
+def add_video_to_database(title, filename, addedBy, url):
     '''add new video record into db'''
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
         # todo: check if filename exists here and overwrite? if it does
-        c.execute('insert into video (title, filename, addedBy) values (?, ?, ?)', (title, filename, addedBy))
+        c.execute('insert into video (title, filename, addedBy, srcUrl) values (?, ?, ?, ?)', (title, filename, addedBy, url))
         
         # print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
         # for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
         #     print(row)
         
         return jsonify(result=True)
+
 @app.route('/_rate')
 def rate_video():
     # todo: validate input
@@ -223,6 +226,61 @@ def rate_video():
         c = conn.cursor()
 
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
+
+        return jsonify(result=True)
+
+@app.route('/_insert_in_queue')
+def insert_in_queue():
+    ''' insert a video into the queue '''
+    videoId = request.args.get('videoId')
+    addedBy = request.args.get('addedBy')
+
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        # c.execute('insert into queue (videoId, addedBy) values (?,?)', (videoId, addedBy))
+        # make a gap by moving all songs after this one along one
+        c.execute('update queue set order = order + 1 where order > ?', (crntOrder, ))
+        # insert new thing
+        c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, crntOrder + 1 ))
+
+    return jsonify(result=True)
+
+
+def auto_queue():
+    # this just needs to play something if the queue is empty?
+
+    ''' currently: check if queue is down to one or less songs, then queue one'''
+
+    highestOrder = 0 # default to first in queue
+
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        for row in c.execute('select [order] from queue order by [order] desc LIMIT 1'): # get highest order
+            highestOrder = row[0]
+        
+        print('auto_queue current queue count', c.rowcount)
+
+        # insert random song
+        c.execute('insert into queue (videoId, addedBy, [order]) values (?,?,?)', (videoId, 'Video Bot', highestOrder + 1))
+
+
+
+
+def play_queue():
+    # videoId = request.args.get('videoId')
+    # addedBy = request.args.get('addedBy')
+
+    conn = sqlite3.connect('video.db')
+    with conn:
+        c = conn.cursor()
+        c.execute('select * from queue order by order asc')
+        if(c.rowcount==0):
+            auto_queue()
+            return
+        
+
 
         return jsonify(result=True)
 
@@ -250,6 +308,8 @@ def clear_queue():
 
         try:
             c.execute(queueSql)
+            conn.commit()
+
             return jsonify(result=True)
         except:
             return jsonify(result=False)
@@ -426,17 +486,16 @@ def download_video():
         print('failed to find file')
 
     print('guessing filename should be: ' + filename)
-    # todo: strip stuff like (Official Video) from title
-    # todo: this is dumb
+    # strip stuff like (Official Video) from title
+    # todo: this is dumb, maybe have a list of banned phrases
     title = video['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
-    add_video_to_database(title, filename, addedBy)
+    add_video_to_database(title, filename, addedBy, url)
 
     return jsonify(result=video)
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 if __name__ == '__main__':
 

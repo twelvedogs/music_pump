@@ -31,9 +31,11 @@
         <div class="btn-group btn-group-justified" role="group" aria-label="Basic example">
           <div class="form-control">3:99</div>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('prev')" >Prev</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('pause')" >Play/Pause</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('pause')" >Pause</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('play')" >Play</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('next')" >Next</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_song()" >info</button>
+            &nbsp; <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >Process Queue</button>
         </div>
 
         <div>
@@ -73,15 +75,16 @@
       <li><a href="#">is_dirty flags for file list and queue</a></li>
       <li><a href="#">block/queue downloads while currently downloading</a></li>
       <li><a href="#">rating interface (right click menu?)</a></li>
-      <li><a href="#">final layout</a></li>
       <li><a href="#">show thumbnail</a></li>
-      <li><a href="#">show tick boxes to filter by user/s</a></li>
+      <li><a href="#">add extra filtering options like user and mature</a></li>
       <li><a href="#">list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list</a></li>
       <li><a href="#">add function to scan directory/s for missing files</a></li>
       <li><a href="#">use web sockets to maintain status</a></li>
       <li><a href="#">check if videojs is worth the effort</a></li>
       <li><a href="#">check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match</a></li>
-  </ul>
+      <li><a href="#">explore replacing telnet with hooks into the web interface or anything else</a></li>
+
+  </ol>
   
   <script>
     function searchUL(searchBoxId, ulId) {
