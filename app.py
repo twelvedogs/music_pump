@@ -8,6 +8,7 @@
         remove songs via mv to deleted directory
         rate songs into database
         play songs via vlc, locally or remotely
+        get auto-playlist weighted by song rating
     
     todo: set renderer to chromecasts via command line
     todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
