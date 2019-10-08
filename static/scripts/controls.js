@@ -15,7 +15,7 @@ function getRandomInt(min, max) {
 // var myPlayer = null;
 $(function() {
   
-  get_song();
+  get_video();
   get_list();
   get_queue();
 
@@ -96,7 +96,7 @@ function update_time(){
 
   // don't do a full update too often, just update the progress bar
   if(crntTime> (lastCalled + hardUpdateTime)){
-    get_song();
+    get_video();
     lastCalled = crntTime;
   }else{
     played += softUpdateTime / 1000;
@@ -111,7 +111,7 @@ function set_progress(){
   $('#video_progress').css('width','' + played/length * 100 + '%');
 }
 
-/** set up timer to refresh song status */
+/** set up timer to refresh video status */
 function set_play_state(p){
   playing = p;
   if(playing && !playTimer){
@@ -124,8 +124,8 @@ function set_play_state(p){
 }
 
 /** rename to get_video */
-function get_song(){
-    $.getJSON($SCRIPT_ROOT + '/_get_song', {
+function get_video(){
+    $.getJSON($SCRIPT_ROOT + '/_get_video', {
       }, function(data) {
         if(data === null){
           $('#currentlyPlaying').val('Nothing playing');
@@ -246,6 +246,32 @@ function get_queue(){
  * get the video list and populate the controls that manage it,
  * currently just #videoUL
  */
+function rate(videoId, rating){
+  $.getJSON($SCRIPT_ROOT + '/_rate', {
+      'videoId': videoId,
+      'rating': rating
+  }, function(data) {
+      var videoULLi = '';
+      if(data.result.length===0) {
+        console.log('no files')
+        $('#files').html('no files');
+      } else {
+        // create the option html and just stuff it in the control
+        // #files is going away
+        $.each(data.result, function(i, val) {
+          videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
+            '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
+            '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
+        });
+        $('#videoUL').html(videoULLi);
+      }
+  });
+}
+
+/**
+ * get the video list and populate the controls that manage it,
+ * currently just #videoUL
+ */
 function get_list(){
     $.getJSON($SCRIPT_ROOT + '/_list_videos', {
         // test: 'test',
@@ -258,7 +284,9 @@ function get_list(){
           // create the option html and just stuff it in the control
           // #files is going away
           $.each(data.result, function(i, val) {
-            videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a><button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button></li>'
+            videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
+              '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
+              '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
           });
           $('#videoUL').html(videoULLi);
         }
