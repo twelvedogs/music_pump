@@ -16,6 +16,8 @@ from flask import Flask, jsonify, render_template, request
 from pathlib import Path
 import sqlite3
 import os
+import random
+import time
 
 import telnetlib
 import youtube_dl
@@ -23,11 +25,6 @@ import youtube_dl
 app = Flask(__name__)
 
 path = 'F:\\code\\music_pump\\downloads\\'
-# todo: global statuses so a cache of them can be hit up without
-#       talking to vlc etc
-downloading = False
-crntVideoId = -1
-crntOrder = -1
 
 def load_video(videoId = 0):
     conn = sqlite3.connect('video.db')
@@ -41,7 +38,8 @@ def load_video(videoId = 0):
 
 # this not being serialisable sucks balls
 class Video:
-    def __init__(self, videoId, title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy):
+    def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed=None, 
+                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1):
         if(videoId > 0 ):
             self.videoId = videoId
         self.title = title
@@ -52,6 +50,8 @@ class Video:
         self.mature = mature
         self.videoType = videoType
         self.addedBy = addedBy
+        self.length = length
+
     def __str__(self):
         return '{ videoId: \"' + str(self.videoId)  + '\", title: \"' + self.title  + '\", filename: \"' + self.filename + '\"}'
 
@@ -69,7 +69,59 @@ class Video:
                 c.execute('insert into video set (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
                     self)
             
+class Vlc:
+    # maybe init with URL?
+    def __init__(self):
+        self.downloading = False
+        self.crntVideo = None
+        self.crntOrder = -1
+        self.pause = 0
+        self.lastUpdated = -1
 
+    def get_song(self):
+        # build info from vlc player
+        # todo: if valid and less than X seconds have elapsed just return existing
+        try:
+            print('calling at ' + str(self.lastUpdated))
+            res=Video()
+
+            res.title = '' # find by filename
+            res.filename = telnet_command('get_title').strip()
+
+            # seconds elapsed in current song
+            elapsed = telnet_command('get_time').strip()
+            if(elapsed != ''):
+                res.played = int(elapsed)
+            else:
+                res.played = 0
+            
+            res.length = int(telnet_command('get_length').strip())
+            res.playing = int(telnet_command('is_playing').strip())
+
+            # only update if we made it
+            self.crntVideo = res
+            self.lastUpdated = time.time() # seconds since epoch
+
+        except Exception:
+            print('Failed to get current song info from VLC')
+
+        return jsonify(result=self.crntVideo)
+
+        #return self.crntVideo
+
+    def get_length(self):
+        return self.crntVideo['length']
+
+    def play_pause(self):
+        telnet_command('pause')
+
+        # toggle internal pause state
+        self.pause = 1 - self.pause
+
+        return jsonify(result=True)
+
+
+vlc = Vlc()
 
 # telnet connection
 tn = None
@@ -78,7 +130,7 @@ def telnet_connect():
 
     host = 'localhost' # ip/hostname
     password = 'test' # password, just jams it in once we're connected
-    port = '23'
+    port = '4212' # vlc default telnet port, probably don't change as using 23 or something causes issues in linux
 
     print('Connecting', host, port)
     tn = telnetlib.Telnet(host, port) # default telnet: 23
@@ -117,9 +169,9 @@ def get_length():
         get the length of the currently playing track
         used for slider animation and 
     '''
-    length = telnet_command('get_length')
+    # length = telnet_command('get_length')
 
-    return jsonify(result=length)
+    return jsonify(result=vlc.crntVideo.length)
 
 @app.route('/_play_pause')
 def play_pause():
@@ -128,9 +180,6 @@ def play_pause():
     '''
     telnet_command('pause')
     return jsonify(result=True)
-
-
-
 
 @app.route('/_delete_video')
 def delete_video():
@@ -171,27 +220,8 @@ def get_song():
         todo: theoretically the script should know this before it asks as long as vlc
               isn't allowed to progress through it's own playlist
     '''
-    global songInfoResult
-    try:
-        res={}
-        res["title"] = '' # find by filename
-        res["filename"] = telnet_command('get_title').strip()
-        time = telnet_command('get_time').strip()
-        if(time != ''):
-            res["played"] = int(time)
-        else:
-            res["played"] = 0
-        
-        res["length"] = int(telnet_command('get_length').strip())
-        res["playing"] = int(telnet_command('is_playing').strip())
-
-        # only update if we made it
-        songInfoResult = res
-        #songInfoResult["lastUpdated"] = time
-    except Exception:
-        print('Failed to get current song info from VLC')
-
-    return jsonify(result=songInfoResult)
+    
+    return jsonify(vlc.get_song())
 
 @app.route('/_raw_command')
 def raw_command():
@@ -246,7 +276,7 @@ def insert_in_queue():
 
     return jsonify(result=True)
 
-
+@app.route('/_auto_queue')
 def auto_queue():
     # this just needs to play something if the queue is empty?
 
@@ -260,12 +290,39 @@ def auto_queue():
         for row in c.execute('select [order] from queue order by [order] desc LIMIT 1'): # get highest order
             highestOrder = row[0]
         
-        print('auto_queue current queue count', c.rowcount)
+        # print('auto_queue current queue count', c.rowcount)
 
-        # insert random song
-        c.execute('insert into queue (videoId, addedBy, [order]) values (?,?,?)', (videoId, 'Video Bot', highestOrder + 1))
+        # here we go!
+        rando = '''
+with video_with_sum as (select * from video CROSS JOIN (select sum(rating) as rating_sum from video)),
+sampling_probability as (select videoId, title, rating,rating*1.0/rating_sum as prob from video_with_sum),
+sampling_cumulative_prob AS (
+SELECT
+videoId, title,
+sum(prob) OVER (order by title) AS cum_prob
+FROM sampling_probability
+),
+cumulative_bounds AS (
+SELECT
+videoId, title,
+COALESCE(
+lag(cum_prob) OVER (ORDER BY cum_prob, title),
+0
+) AS lower_cum_bound,
+cum_prob AS upper_cum_bound
+FROM sampling_cumulative_prob
+)
+SELECT *
+FROM cumulative_bounds where lower_cum_bound<:rand and upper_cum_bound>:rand;'''
+        rand = random.random()
+        videoId = 1
+        for row in c.execute(rando, { 'rand': rand } ):
+            print(row)
+            # insert random song
+            print(row[0], 'Video Bot', highestOrder + 1)
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?,?,?)', (row[0], 'Video Bot', highestOrder + 1))
 
-
+    return '{ "response": True }'
 
 
 def play_queue():
@@ -293,7 +350,7 @@ def add_to_queue():
     conn = sqlite3.connect('video.db')
     with conn:
         c = conn.cursor()
-        c.execute('insert into queue (videoId, addedBy) values (?,?)', (videoId, addedBy))
+        c.execute('insert into queue (videoId, addedBy, [order]) values (?,?)', (videoId, addedBy, 1))
         return jsonify(result=True)
 
 @app.route('/_clear_queue')
@@ -348,6 +405,8 @@ def get_queue():
             video['videoId'] = row[0]
             video['title'] = row[1]
             video['rating'] = row[2]
+            video['addedBy'] = row[3]
+            # video['order'] = row[4]
 
             videos.append(video)
 

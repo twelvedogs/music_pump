@@ -265,6 +265,16 @@ function get_list(){
     });
 }
 
+/**
+ * call the auto queue functionality, should be automatic in future
+ */
+function auto_queue(){
+    $.getJSON($SCRIPT_ROOT + '/_auto_queue', {}, 
+      function(data) {
+        console.log(data);
+        });
+}
+
 function rate_video(){
     $.getJSON($SCRIPT_ROOT + '/_rate_video', {
         rating: '5',
