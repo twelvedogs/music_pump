@@ -22,6 +22,20 @@ class Video:
         return '{ \"videoId\": \"' + str(self.videoId) + '\", \"title\": \"' + self.title + '\", \"filename\": \"' + self.filename + '\",' + '\"length\": ' + str(self.length) + '}'
     
     @staticmethod
+    def findByFilename(filename):
+        conn = sqlite3.connect('video.db')
+        with conn:
+            c = conn.cursor()
+            # videos=[] # probably impliment search in another function
+            for row in c.execute('SELECT * FROM video where filename like ? ORDER BY dateAdded desc', (filename,)):
+                video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
+                # videos += video
+                return video
+            
+            print('Video.findByFilename - video not found: ', filename)
+            return None
+
+    @staticmethod
     def load(videoId):
         '''
         get database record for video by id

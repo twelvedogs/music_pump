@@ -21,6 +21,8 @@ def telnet_connect():
     tn = telnetlib.Telnet(host, port) # default telnet: 23
     telnet_command(password)
 
+# todo: this should force new telnet commands to wait for old ones to finish?
+#       once we're on async might be able to handle it better
 def telnet_command(cmd):
     global tn
 
@@ -51,6 +53,8 @@ class Vlc:
     def __init__(self):
         self.downloading = False
         self.crntVideo = None
+        self.timeStarted = -1
+        self.elapsed = 0 # seconds since song start
         self.crntOrder = -1
         self.pause = 0
         self.lastUpdated = -1
@@ -58,9 +62,31 @@ class Vlc:
     def raw(self, cmd):
         return telnet_command(cmd)
 
+    def advance_queue(self):
+        conn = sqlite3.connect('video.db')
+        with conn:
+            c = conn.cursor()
+
+            for row in c.execute('select video.videoId, video.title, video.filename from queue inner join video on queue.videoId=video.videoId order by queue.[order] asc limit 1'):
+                self.crntOrder=self.crntOrder+1 # not reliable
+                print('order', self.crntOrder)
+                v = Video(row[0], row[1], row[2])
+                self.play_now(v)
+
+    def tick(self):
+        '''
+        maintenance tasks like managing playlist/currently playing
+        '''
+        print('tick')
+
+        # need to be able to work from timeStarted or progress
+        if(not self.crntVideo or self.timeStarted + self.crntVideo.length > time.time() ):
+            self.advance_queue()
+
     def play_video(self, videoId, addedBy, after = True):
         '''
         insert video into queue by id, addedBy just for info
+        todo: rename to queue
         '''
         print('playing', videoId)
         video = Video.load(videoId)
@@ -75,12 +101,18 @@ class Vlc:
             c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crntOrder + 1 ))
 
         if not after:
-            # hrm, might need to manage the vlc playlist
-            telnet_command('clear')
-            # play filename right now to vlc via telnet
-            longpath = 'file:///' + (path + video.filename).replace('\\','/')
-            telnet_command('add '+ longpath + '')
+            self.play_now(video)
 
+    # push file to vlc probably needs to be renamed
+    def play_now(self, video):
+        # hrm, might need to manage the vlc playlist
+        telnet_command('clear')
+        self.timeStarted = time.time()
+        self.crntVideo = video
+        
+        # play filename right now to vlc via telnet
+        longpath = 'file:///' + (path + video.filename).replace('\\','/')
+        telnet_command('add '+ longpath + '')
 
     def get_queue(self):
         conn = sqlite3.connect('video.db')
@@ -103,7 +135,7 @@ class Vlc:
                 video 
             on queue.videoId = video.videoId 
 
-            ORDER BY queue.dateAdded desc
+            ORDER BY queue.[order] asc
             '''
 
             # dunno if this can be simplified
@@ -181,18 +213,21 @@ class Vlc:
         try:
             # don't beat the crap out of the telnet server
             if(self.lastUpdated < time.time() - 5):
-                print('Updating crntVideo')
-                res = Video()
+                filename = telnet_command('get_title').strip()
+                # todo: deal with missing files
+                res = Video.findByFilename(filename)
 
-                res.title = '' # find by filename
-                res.filename = telnet_command('get_title').strip()
+                # res.filename = telnet_command('get_title').strip()
 
                 # seconds elapsed in current video
+                # todo: calc from internal timer
                 elapsed = telnet_command('get_time').strip()
                 if(elapsed != ''):
                     res.played = int(elapsed)
+                    self.elapsed = int(elapsed)
                 else:
                     res.played = 0
+                    self.elapsed = 0
                 
                 res.length = int(telnet_command('get_length').strip())
                 res.playing = int(telnet_command('is_playing').strip())
@@ -201,16 +236,20 @@ class Vlc:
                 self.crntVideo = res
                 self.lastUpdated = time.time() # seconds since epoch
 
+                # print('Updating crntVideo from vlc', self.elapsed, '/', self.crntVideo.length)
+
         except Exception:
             print('Failed to get current video info from VLC')
 
-        print(self.crntVideo)
+        # todo: change to quart and manange with async
+        self.tick()
 
         # no idea why this needs to be a copy
         if(self.crntVideo):
             return dict.copy(self.crntVideo.__dict__)
         else:
             return None
+
 
 
     def get_length(self):

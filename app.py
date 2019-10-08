@@ -56,11 +56,9 @@ def delete_video():
 
 @app.route('/_play_video')
 def play_video():
-    # print('play video', request.args.get('videoId'), int(request.args.get('videoId')))
-    # videoId = int(request.args.get('videoId'))
     vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
 
-    return jsonify(result=True) # {'title': vlc.crntVideo.title})
+    return jsonify(result=True) # {'title': vlc.crntVideo.title}) # probably won't be updated for a second
 
 @app.route('/_get_video')
 def get_video():
