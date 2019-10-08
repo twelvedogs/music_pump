@@ -18,8 +18,6 @@ import sqlite3
 import os
 import random
 import time
-
-
 import youtube_dl
 
 from video import Video
@@ -31,16 +29,12 @@ path = 'F:\\code\\music_pump\\downloads\\'
 
 vlc = Vlc()
 
-
-
 @app.route('/_get_length')
 def get_length():
     '''
     get the length of the currently playing track
     used for slider animation and 
     '''
-    # length = telnet_command('get_length')
-
     return jsonify(result=vlc.crntVideo.length)
 
 @app.route('/_play_pause')
@@ -56,19 +50,17 @@ def play_pause():
 @app.route('/_delete_video')
 def delete_video():
     video = Video.load(request.args.get('videoId'))
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        c.execute('delete from video where videoId =?', (video.videoId,))
+    video.delete()
 
-    return jsonify(result={'title': video.title})
+    return jsonify(result=True)
 
 @app.route('/_play_video')
 def play_video():
+    # print('play video', request.args.get('videoId'), int(request.args.get('videoId')))
+    # videoId = int(request.args.get('videoId'))
+    vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
 
-    vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'))
-
-    return jsonify(result={'title': vlc.crntVideo.title})
+    return jsonify(result=True) # {'title': vlc.crntVideo.title})
 
 @app.route('/_get_video')
 def get_video():
@@ -76,25 +68,10 @@ def get_video():
 
 @app.route('/_raw_command')
 def raw_command():
-    ''' pass command directly to VLC, maybe get rid of it later '''
+    ''' pass command directly to VLC, get rid of this later '''
     cmd = request.args.get('cmd')
 
     return jsonify(result=vlc.raw(cmd))
-
-
-def add_video_to_database(title, filename, addedBy, url):
-    '''add new video record into db'''
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        # todo: check if filename exists here and overwrite? if it does
-        c.execute('insert into video (title, filename, addedBy, srcUrl) values (?, ?, ?, ?)', (title, filename, addedBy, url))
-        
-        # print('videoId', 'title', 'filename', 'rating', 'lastPlayed', 'dateAdded', 'mature', 'videoType', 'added by')
-        # for row in c.execute('SELECT * FROM video ORDER BY dateAdded desc'):
-        #     print(row)
-        
-        return jsonify(result=True)
 
 @app.route('/_rate')
 def rate_video():
@@ -110,159 +87,68 @@ def rate_video():
 
     return jsonify(result=True)
 
-@app.route('/_insert_in_queue')
-def insert_in_queue():
-    ''' insert a video into the queue '''
-    videoId = request.args.get('videoId')
-    addedBy = request.args.get('addedBy')
-
-    vlc.play_video(videoId, addedBy, after)
-
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        # make a gap by moving all videos after this one along one
-        c.execute('update queue set order = order + 1 where order > ?', (vlc.crntOrder, ))
-        # insert after current
-        # vlc.play_next(videoId)
-        # vlc.play_video(videoId)
-        c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, vlc.crntOrder + 1 ))
-
-    return jsonify(result=True)
+# @app.route('/_insert_in_queue')
+# def insert_in_queue():
+#     ''' insert a video into the queue '''
+#     videoId = request.args.get('videoId')
+#     addedBy = request.args.get('addedBy')
+# 
+#     vlc.play_video(videoId, addedBy, after=True)
+# 
+#     conn = sqlite3.connect('video.db')
+#     with conn:
+#         c = conn.cursor()
+#         # make a gap by moving all videos after this one along one
+#         c.execute('update queue set order = order + 1 where order > ?', (vlc.crntOrder, ))
+#         # insert after current
+#         # vlc.play_next(videoId)
+#         # vlc.play_video(videoId)
+#         c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, vlc.crntOrder + 1 ))
+# 
+#     return jsonify(result=True)
 
 @app.route('/_auto_queue')
 def auto_queue():
-    # this just needs to play something if the queue is empty?
-
-    ''' currently: check if queue is down to one or less videos, then queue one'''
-
-    highestOrder = 0 # default to first in queue
-
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        for row in c.execute('select [order] from queue order by [order] desc LIMIT 1'): # get highest order
-            highestOrder = row[0]
-        
-        # here we go!
-        rando = '''
-with video_with_sum as (select * from video CROSS JOIN (select sum(rating) as rating_sum from video)),
-sampling_probability as (select videoId, title, rating,rating*1.0/rating_sum as prob from video_with_sum),
-sampling_cumulative_prob AS (
-SELECT
-videoId, title,
-sum(prob) OVER (order by title) AS cum_prob
-FROM sampling_probability
-),
-cumulative_bounds AS (
-SELECT
-videoId, title,
-COALESCE(
-lag(cum_prob) OVER (ORDER BY cum_prob, title),
-0
-) AS lower_cum_bound,
-cum_prob AS upper_cum_bound
-FROM sampling_cumulative_prob
-)
-SELECT *
-FROM cumulative_bounds where lower_cum_bound<:rand and upper_cum_bound>:rand;'''
-        rand = random.random()
-
-        # todo: it's 
-        for row in c.execute(rando, { 'rand': rand } ):
-            print(row)
-            # insert random video after current one
-            print(row[0], 'Video Bot', highestOrder + 1)
-            c.execute('insert into queue (videoId, addedBy, [order]) values (?,?,?)', (row[0], 'Video Bot', highestOrder + 1))
-
-    return '{ "response": True }'
+    ''' 
+    currently: check if queue is down to one or less videos, then queue one
+    todo: this doesn't need to be called from interface
+    '''
+    return jsonify(result=vlc.auto_queue())
 
 
-def play_queue():
-    # videoId = request.args.get('videoId')
-    # addedBy = request.args.get('addedBy')
-
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        c.execute('select * from queue order by order asc')
-        if(c.rowcount==0):
-            auto_queue()
-            return
-
-        return jsonify(result=True)
+# def play_queue():
+#     conn = sqlite3.connect('video.db')
+#     with conn:
+#         c = conn.cursor()
+#         c.execute('select * from queue order by order asc')
+#         if(c.rowcount==0):
+#             auto_queue()
+#             return
+# 
+#         return jsonify(result=True)
 
 @app.route('/_add_to_queue')
 def add_to_queue():
-    ''' insert a video into the queue '''
+    ''' add a video to the end of queue '''
     videoId = request.args.get('videoId')
     addedBy = request.args.get('addedBy')
 
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        c.execute('insert into queue (videoId, addedBy, [order]) values (?,?)', (videoId, addedBy, 1))
-    
-    return jsonify(result=True)
+    return jsonify(result=vlc.play_video(videoId, addedBy))
 
 @app.route('/_clear_queue')
 def clear_queue():
-    '''return current queue to client'''
-
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
-        # select the queue and add extra info from the video table
-        queueSql = 'delete from queue'
-
-        try:
-            c.execute(queueSql)
-            conn.commit()
-
-            return jsonify(result=True)
-        except:
-            return jsonify(result=False)
+    '''
+    clear out the database queue
+    '''
+    return jsonify(result=vlc.clear_queue())
 
 
 @app.route('/_get_queue')
 def get_queue():
     '''return current queue to client'''
 
-    conn = sqlite3.connect('video.db')
-    with conn:
-        c = conn.cursor()
+    return jsonify(result=vlc.get_queue())
 
-        videos = []
-
-        # select the queue and add extra info from the video table
-        queueSql = '''
-        SELECT 
-            queue.videoId, 
-            video.title, 
-            video.rating,
-            queue.addedBy 
-        FROM 
-            queue 
-        left join 
-            video 
-        on queue.videoId = video.videoId 
-
-        ORDER BY queue.dateAdded desc
-        '''
-
-        # dunno if this can be simplified
-        for row in c.execute(queueSql):
-
-            video = {}
-            video['videoId'] = row[0]
-            video['title'] = row[1]
-            video['rating'] = row[2]
-            video['addedBy'] = row[3]
-            # video['order'] = row[4]
-
-            videos.append(video)
-
-        return jsonify(result=videos)
 
 
 
@@ -334,7 +220,10 @@ def clean_video_list():
 
 @app.route('/_download_video')
 def download_video():
-    '''download video and set default rating in db'''
+    '''
+    download video and set default rating in db
+    todo: big cleanup
+    '''
     url = request.args.get('url', '', type=str)
     addedBy = request.args.get('addedBy', '', type=str)
 
@@ -367,24 +256,24 @@ def download_video():
         return jsonify(result=False)
     else:
         # Just a video
-        video = result
+        youtubeResponse = result
 
     # not sure where to find the actual filename it was saved as
     # todo: this is dumb
     # badChars = '"\'/&'
-    filename = (video['title'] + ' - ' + video['id']).replace('"','\'').replace('/','_')
+    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_')
 
     
 
     # test if we had to merge the files into an mkv
     # todo: clean up
     try:
-        print('trying downloads/' + filename + '.' + video['ext'])
-        my_file = Path('downloads/'+ filename + '.' + video['ext']) # use os.join
+        print('trying downloads/' + filename + '.' + youtubeResponse['ext'])
+        my_file = Path('downloads/'+ filename + '.' + youtubeResponse['ext']) # use os.join
         if not my_file.is_file():
-            print(video['ext'] + ' not found trying mkv')
+            print(youtubeResponse['ext'] + ' not found trying mkv')
         else:
-            filename += '.'+video['ext']
+            filename += '.'+youtubeResponse['ext']
 
         print('trying downloads/' + filename + '.mkv')
         my_file = Path('downloads/' + filename + '.mkv') # use os.join
@@ -399,10 +288,10 @@ def download_video():
     print('guessing filename should be: ' + filename)
     # strip stuff like (Official Video) from title
     # todo: this is dumb, maybe have a list of banned phrases
-    title = video['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
-    add_video_to_database(title, filename, addedBy, url)
+    title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
+    vid = Video(title=title, filename=filename, addedBy=addedBy, url=url)
 
-    return jsonify(result=video)
+    return jsonify(result=vid)
 
 @app.route('/')
 def index():

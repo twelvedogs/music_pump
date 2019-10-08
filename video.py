@@ -4,9 +4,9 @@ import sqlite3
 # this not being serialisable sucks balls
 class Video:
     def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed=None, 
-                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1):
-        if(videoId > 0 ):
-            self.videoId = videoId
+                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url=''):
+        # if(videoId > 0 ):
+        self.videoId = videoId
         self.title = title
         self.filename = filename
         self.rating = rating
@@ -16,27 +16,57 @@ class Video:
         self.videoType = videoType
         self.addedBy = addedBy
         self.length = length
+        self.url = url
 
     def __str__(self):
-        return '{ videoId: \"' + str(self.videoId)  + '\", title: \"' + self.title  + '\", filename: \"' + self.filename + '\"}'
-
-    def load(self, videoId=0):
+        return '{ \"videoId\": \"' + str(self.videoId) + '\", \"title\": \"' + self.title + '\", \"filename\": \"' + self.filename + '\",' + '\"length\": ' + str(self.length) + '}'
+    
+    @staticmethod
+    def load(videoId):
         '''
         get database record for video by id
         '''
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
-            # videos=[]
+            # videos=[] # probably impliment search in another function
             for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
                 video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
                 # videos += video
                 return video
-
+            
+            print('Video.load - video not found: ', videoId)
             return None
 
 
+    def delete(self):
+        ''' 
+        deletes from db only
+        todo: move file to another folder and mark as deleted in db
+        '''
+        conn = sqlite3.connect('video.db')
+        with conn:
+            c = conn.cursor()
+            c.execute('delete from video where videoId =?', (self.videoId,))
+
+
+    #def delete(self):
+    #    conn = sqlite3.connect('video.db')
+    #    with conn:
+    #        c = conn.cursor()
+    #        # select the queue and add extra info from the video table
+    #        queueSql = 'delete from queue'
+#
+    #        try:
+    #            c.execute(queueSql)
+    #            conn.commit()
+#
+    #            return True
+    #        except:
+    #            return False
+
     def save(self):
+        ''' update video database record or create if videoId < 1 '''
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()

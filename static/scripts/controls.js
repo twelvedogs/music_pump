@@ -123,7 +123,7 @@ function set_play_state(p){
   }
 }
 
-/** rename to get_video */
+
 function get_video(){
     $.getJSON($SCRIPT_ROOT + '/_get_video', {
       }, function(data) {
@@ -188,8 +188,8 @@ function play_video(id){
             $.growl.error({ message: 'Couldn\'t add'});
           }else{
             $.growl.notice({ message: 'Adding ' + data.result.title });
-            // probably could return this from _play_video, dunno if that make sense
-            get_list();
+            // probably could return queue array from play_video to skip extra call
+            get_queue();
             console.log(data.result);
           }
       });
@@ -235,7 +235,7 @@ function get_queue(){
         } else {
 
           $.each(data.result, function(i, val) {
-              fileList += '<a onclick="play_video(\''+val.videoId+'\')">'+val.title+'</a><br>';
+              fileList += '<a onclick="play_video(\''+val.videoId+'\')">'+val.order+' - '+val.title+'</a><br>';
           });
           $('#queue').html(fileList);
         }
