@@ -26,7 +26,7 @@ from vlc import Vlc
 app = Flask(__name__)
 
 path = 'F:\\code\\music_pump\\downloads\\'
-
+path = '~/Videos/' # todo: config file
 vlc = Vlc()
 
 @app.route('/_get_length')
@@ -232,7 +232,7 @@ def download_video():
     # todo: need to specify download format of h264 for rpi
     # todo: need to catch malformed url
     # todo: check if folder exists probably
-    ydl = youtube_dl.YoutubeDL({'outtmpl': '/downloads/%(title)s - %(id)s.%(ext)s', 
+    ydl = youtube_dl.YoutubeDL({'outtmpl': path + '%(title)s - %(id)s.%(ext)s', 
     'format': 'bestvideo+bestaudio/best', 
     'getfilename': True, 
     'keep': True, 
@@ -266,15 +266,15 @@ def download_video():
     # test if we had to merge the files into an mkv
     # todo: clean up
     try:
-        print('trying downloads/' + filename + '.' + youtubeResponse['ext'])
-        my_file = Path('downloads/'+ filename + '.' + youtubeResponse['ext']) # use os.join
+        print('trying ' + path + filename + '.' + youtubeResponse['ext'])
+        my_file = Path(path + filename + '.' + youtubeResponse['ext']) # use os.join
         if not my_file.is_file():
             print(youtubeResponse['ext'] + ' not found trying mkv')
         else:
-            filename += '.'+youtubeResponse['ext']
+            filename += '.' + youtubeResponse['ext']
 
-        print('trying downloads/' + filename + '.mkv')
-        my_file = Path('downloads/' + filename + '.mkv') # use os.join
+        print('trying ' + path + filename + '.mkv')
+        my_file = Path( path + filename + '.mkv') # use os.join
         if not my_file.is_file():
             print('file not found')
         else:
@@ -288,8 +288,9 @@ def download_video():
     # todo: this is dumb, maybe have a list of banned phrases
     title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
     vid = Video(title=title, filename=filename, addedBy=addedBy, url=url)
-
-    return jsonify(result=vid)
+    vid.save()
+    
+    return str(vid) #jsonify(result=vid)
 
 @app.route('/')
 def index():
