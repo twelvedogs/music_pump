@@ -54,6 +54,12 @@ def delete_video():
 
     return jsonify(result=True)
 
+@app.route('/_tick')
+def tick():
+    vlc.tick()
+
+    return jsonify(result=True) # {'title': vlc.crntVideo.title}) # probably won't be updated for a second
+
 @app.route('/_play_video')
 def play_video():
     vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True

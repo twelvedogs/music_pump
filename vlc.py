@@ -66,11 +66,20 @@ class Vlc:
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
+            print('trying to play queue order > ', self.crntOrder)
+            rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crntOrder,))
+            # print('queue rows found: ', rows)
+            nextInQueue = rows.fetchone()
+            # if no videos in queue add one and restart
+            if(nextInQueue == None):
+                rows.close()
+                self.auto_queue()
+                self.advance_queue()
 
-            for row in c.execute('select video.videoId, video.title, video.filename from queue inner join video on queue.videoId=video.videoId order by queue.[order] asc limit 1'):
-                self.crntOrder=self.crntOrder+1 # not reliable
-                print('order', self.crntOrder)
-                v = Video(row[0], row[1], row[2])
+            else:
+                # for row in nextInQueue:
+                self.crntOrder = nextInQueue[3]
+                v = Video(nextInQueue[0], nextInQueue[1], nextInQueue[2])
                 self.play_now(v)
 
     def tick(self):
@@ -97,8 +106,10 @@ class Vlc:
             c = conn.cursor()
             # make a gap by moving all videos after this one along one
             c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crntOrder, ))
+            conn.commit()
             # insert new thing
             c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crntOrder + 1 ))
+            conn.commit()
 
         if not after:
             self.play_now(video)
@@ -159,13 +170,16 @@ class Vlc:
         with conn:
             c = conn.cursor()
             c.execute('delete from queue')
+            conn.commit()
 
         return True
 
     def auto_queue(self):
         ''' queues a random video, todo: currently not called'''
-
+        print('trying to auto queue')
         conn = sqlite3.connect('video.db')
+
+        video_to_add = -1
         with conn:
             c = conn.cursor()
 
@@ -195,11 +209,14 @@ class Vlc:
             # todo: it's 
             for row in c.execute(rando, { 'rand': rand } ):
                 print(row)
+                video_to_add = row[0]
 
-                # insert random video after current one
-                self.play_video(row[0], 'Video Bot', True)
-
-        return True
+        # insert random video after current one
+        if(video_to_add>0):
+            self.play_video(video_to_add, 'Video Bot', True)
+            return True
+        else:
+            return False
 
 
     def get_video(self):
@@ -240,9 +257,7 @@ class Vlc:
 
         except Exception:
             print('Failed to get current video info from VLC')
-
-        # todo: change to quart and manange with async
-        self.tick()
+            self.crntVideo = None # might need to be more careful with this, if communication fails and this is unset then video will skip
 
         # no idea why this needs to be a copy
         if(self.crntVideo):

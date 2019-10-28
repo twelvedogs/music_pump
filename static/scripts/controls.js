@@ -118,17 +118,27 @@ function set_play_state(p){
     $.growl.notice({ message: "Starting playstate update timer" });
     playTimer = setTimeout(update_time, softUpdateTime); // 1000 = 1 sec
   }else if(!playing && playTimer){
-    clearTimeout(playTimer);
-    $.growl.notice({ message: "Stopping playstate update timer" });
+    // need to clear video length thing
+
+    // clearTimeout(playTimer);
+    // $.growl.notice({ message: "Stopping playstate update timer" });
   }
 }
 
+// this is misnamed i think probably should be "auto-add queue item"
+function tick(){
+  $.getJSON($SCRIPT_ROOT + '/_tick', {
+    }, function(data) {
+      console.log(data);
+    });
+}
 
 function get_video(){
     $.getJSON($SCRIPT_ROOT + '/_get_video', {
       }, function(data) {
-        if(data === null){
+        if(data === null || data.result === null){
           $('#currentlyPlaying').val('Nothing playing');
+          tick();
         }else{
           $('#currentlyPlaying').val(data.result.filename);
 

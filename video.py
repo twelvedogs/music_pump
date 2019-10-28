@@ -23,6 +23,10 @@ class Video:
     
     @staticmethod
     def findByFilename(filename):
+        if(filename=='' or filename==None):
+            print('no filename')
+            return None
+
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
