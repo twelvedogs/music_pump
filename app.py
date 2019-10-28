@@ -9,8 +9,17 @@
         rate videos into database
         play videos via vlc, locally or remotely
     
-    todo: set renderer to chromecasts via command line
+    todo: next is broken
+    todo: show current VLC state better
+    todo: video time is broken
     todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
+    todo: auto-set stupid volume level when launching vlc with render target
+    todo: clear queue on launch (unless re-launched recently?)
+    todo: don't queue if video is already in queue table (ie: has already played)
+    todo: multi directory support
+    todo: single video refresh info div
+    todo: re-create database if non-existant so can add to .gitignore
+    todo: scan directory and auto-add missing to db
 '''
 from flask import Flask, jsonify, render_template, request
 from pathlib import Path
@@ -26,7 +35,7 @@ from vlc import Vlc
 app = Flask(__name__)
 
 path = 'F:\\code\\music_pump\\downloads\\'
-path = '~/Videos/' # todo: config file
+# path = '~/Videos/' # todo: config file
 vlc = Vlc()
 
 @app.route('/_get_length')

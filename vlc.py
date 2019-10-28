@@ -7,7 +7,7 @@ from video import Video
 
 # todo: config file
 path = 'F:\\code\\music_pump\\downloads\\'
-path = '~/Videos/' # linux
+# path = '~/Videos/' # linux
 # telnet connection
 tn = None
 def telnet_connect():
