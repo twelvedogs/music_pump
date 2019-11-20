@@ -33,7 +33,8 @@
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('prev')" >Prev</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('pause')" >Pause</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('play')" >Play</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('next')" >Next</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="raw_command('stop')" >Stop</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >Next</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="tick()" >tick</button>
             &nbsp; <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="auto_queue()" >Process Queue</button>
@@ -70,12 +71,7 @@
 
   <ol id="myUL">
       <li><a href="#">click file in list shows options for file, like delete, re-rate, add ect</a></li>
-      <li><a href="#">implement queue</a></li>
-      <li><a href="#">add to queue</a></li>
-      <li><a href="#">cache telnet calls on server</a></li>
-      <li><a href="#">is_dirty flags for file list and queue</a></li>
       <li><a href="#">block/queue downloads while currently downloading</a></li>
-      <li><a href="#">rating interface (right click menu?)</a></li>
       <li><a href="#">show thumbnail</a></li>
       <li><a href="#">add extra filtering options like user and mature</a></li>
       <li><a href="#">list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list</a></li>

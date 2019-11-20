@@ -3,7 +3,7 @@ import sqlite3
 
 # this not being serialisable sucks balls
 class Video:
-    def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed=None, 
+    def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01', 
                 dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url=''):
         # if(videoId > 0 ):
         self.videoId = videoId
@@ -65,36 +65,21 @@ class Video:
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
-            c.execute('delete from video where videoId =?', (self.videoId,))
-
-
-    #def delete(self):
-    #    conn = sqlite3.connect('video.db')
-    #    with conn:
-    #        c = conn.cursor()
-    #        # select the queue and add extra info from the video table
-    #        queueSql = 'delete from queue'
-#
-    #        try:
-    #            c.execute(queueSql)
-    #            conn.commit()
-#
-    #            return True
-    #        except:
-    #            return False
+            c.execute('delete from video where videoId =:videoId;', (self.videoId, ))
+            conn.commit()
+            c.execute('delete from queue where videoId=:videoId;', (self.videoId, ))
+            conn.commit()
 
     def save(self):
         ''' update video database record or create if videoId < 1 '''
         conn = sqlite3.connect('video.db')
         with conn:
             c = conn.cursor()
-            # dunno if i can even do this, probably not since the object has functions which i don't htink are directly serialisable
+            # could probably have some kind of simple object returned by a function on Video
             if(self.videoId>0):
                 c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy where videoId=:videoId', 
-                    self)
+                    (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))
             else:
-                # c.execute('insert into video set (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (?,?,?,?,?,?,?,?) where videoId=?', 
-                #     {title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy, videoId})
-                c.execute('insert into video set (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
-                    self)
+                c.execute('insert into video (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
+                    (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))
 

@@ -8,20 +8,24 @@
         remove videos via mv to deleted directory
         rate videos into database
         play videos via vlc, locally or remotely
-    
+
+    todo: save often can't find filename and breaks
     todo: next is broken
     todo: show current VLC state better
     todo: video time is broken
     todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
     todo: auto-set stupid volume level when launching vlc with render target
     todo: clear queue on launch (unless re-launched recently?)
-    todo: don't queue if video is already in queue table (ie: has already played)
+    todo: don't auto-queue if video is already in queue table (ie: has already played)
     todo: multi directory support
-    todo: single video refresh info div
+    todo: refresh single video info div in the file list
     todo: re-create database if non-existant so can add to .gitignore
     todo: scan directory and auto-add missing to db
+    todo: convert .webm or weird shit to mp4
+    
 '''
 from flask import Flask, jsonify, render_template, request
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 import os
@@ -74,6 +78,19 @@ def play_video():
     vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
 
     return jsonify(result=True) # {'title': vlc.crntVideo.title}) # probably won't be updated for a second
+
+
+@app.route('/_get_status')
+def get_status():
+    '''
+    get all information required to update the interface
+    todo: should this just be maintained and returned when requested?
+    '''
+    result = {}
+    result.video = vlc.get_video()
+    result.queue = vlc.get_queue()
+
+    return jsonify(result=result)
 
 @app.route('/_get_video')
 def get_video():
@@ -302,7 +319,7 @@ def download_video():
     # strip stuff like (Official Video) from title
     # todo: this is dumb, maybe have a list of banned phrases
     title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
-    vid = Video(title=title, filename=filename, addedBy=addedBy, url=url)
+    vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
     
     return str(vid) #jsonify(result=vid)

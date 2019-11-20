@@ -138,6 +138,7 @@ function get_video(){
       }, function(data) {
         if(data === null || data.result === null){
           $('#currentlyPlaying').val('Nothing playing');
+          update_time();
           tick();
         }else{
           $('#currentlyPlaying').val(data.result.filename);
@@ -281,6 +282,7 @@ function rate(videoId, rating){
 /**
  * get the video list and populate the controls that manage it,
  * currently just #videoUL
+ * todo: split into webservice and list generator function
  */
 function get_list(){
     $.getJSON($SCRIPT_ROOT + '/_list_videos', {

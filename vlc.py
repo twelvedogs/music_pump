@@ -68,16 +68,16 @@ class Vlc:
             c = conn.cursor()
             print('trying to play queue order > ', self.crntOrder)
             rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crntOrder,))
-            # print('queue rows found: ', rows)
             nextInQueue = rows.fetchone()
+
             # if no videos in queue add one and restart
             if(nextInQueue == None):
+                print('queue empty, adding and re-trying')
                 rows.close()
                 self.auto_queue()
-                self.advance_queue()
+                # self.advance_queue()
 
             else:
-                # for row in nextInQueue:
                 self.crntOrder = nextInQueue[3]
                 v = Video(nextInQueue[0], nextInQueue[1], nextInQueue[2])
                 self.play_now(v)
@@ -86,10 +86,11 @@ class Vlc:
         '''
         maintenance tasks like managing playlist/currently playing
         '''
-        print('tick')
+        print('tick current playing: ', self.crntVideo)
 
         # need to be able to work from timeStarted or progress
-        if(not self.crntVideo or self.timeStarted + self.crntVideo.length > time.time() ):
+        # this needs to give the queue thing a chance to get the next video started
+        if(not self.crntVideo): # or self.timeStarted + self.crntVideo.length > time.time() ): # timer not working yet
             self.advance_queue()
 
     def play_video(self, videoId, addedBy, after = True):
@@ -112,11 +113,20 @@ class Vlc:
             conn.commit()
 
         if not after:
+            # probably should just add to queue and stop current song?
             self.play_now(video)
 
-    # push file to vlc probably needs to be renamed
+    # this should be an internal function for the vlc object that is called after the queue is advanced
+    # push file to vlc, needs to be from the queue, probably needs to be renamed
     def play_now(self, video):
-        # hrm, might need to manage the vlc playlist
+
+        # rate limiter, can't play a song more than once every 10 sec (for now)
+        if(self.timeStarted >= time.time() - 10):
+            return
+
+        # todo: hrm, might need to manage the vlc playlist instead
+        # clear queue and add the new video
+        print('calling play now, this probably isn\'t the right thing')
         telnet_command('clear')
         self.timeStarted = time.time()
         self.crntVideo = video
@@ -225,16 +235,13 @@ class Vlc:
         need: length, rating, who added
         todo: theoretically the script should know this before it asks as long as vlc
                 isn't allowed to progress through it's own playlist
-        todo: if valid and less than X seconds have elapsed just return existing
         '''
         try:
             # don't beat the crap out of the telnet server
-            if(self.lastUpdated < time.time() - 5):
+            if(self.lastUpdated < time.time() - 7):
                 filename = telnet_command('get_title').strip()
                 # todo: deal with missing files
                 res = Video.findByFilename(filename)
-
-                # res.filename = telnet_command('get_title').strip()
 
                 # seconds elapsed in current video
                 # todo: calc from internal timer
