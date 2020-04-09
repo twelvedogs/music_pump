@@ -1,7 +1,7 @@
 import sqlite3
 
 
-# this not being serialisable sucks balls
+# this not being serialisable sucks balls, there's probably a library for that
 class Video:
     def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01', 
                 dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url=''):
@@ -24,7 +24,7 @@ class Video:
     @staticmethod
     def findByFilename(filename):
         if(filename=='' or filename==None):
-            print('no filename')
+            print('findByFilename called with no filename')
             return None
 
         conn = sqlite3.connect('video.db')

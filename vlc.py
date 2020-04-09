@@ -15,7 +15,7 @@ def telnet_connect():
 
     host = 'localhost' # ip/hostname
     password = 'test' # password, just jams it in once we're connected
-    port = '4212' # vlc default telnet port, probably don't change as using 23 or something causes issues in linux
+    port = '4212' # vlc default telnet port, probably don't change as using 23 or something requires root in linux
 
     print('Connecting', host, port)
     tn = telnetlib.Telnet(host, port) # default telnet: 23
@@ -98,7 +98,7 @@ class Vlc:
         insert video into queue by id, addedBy just for info
         todo: rename to queue
         '''
-        print('playing', videoId)
+        print('playing video with id', videoId)
         video = Video.load(videoId)
         
         #insert into queue

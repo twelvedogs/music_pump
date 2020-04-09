@@ -21,7 +21,7 @@
     todo: refresh single video info div in the file list
     todo: re-create database if non-existant so can add to .gitignore
     todo: scan directory and auto-add missing to db
-    todo: convert .webm or weird shit to mp4
+    todo: !!!!! convert .webm or weird shit to mp4 !!!
     
 '''
 from flask import Flask, jsonify, render_template, request
@@ -329,6 +329,7 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-
-    app.debug = True
+    
+    #app.debug = True
+    # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=80)
