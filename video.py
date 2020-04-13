@@ -1,4 +1,6 @@
+import logging
 import sqlite3
+import cfg
 
 
 # this not being serialisable sucks balls, there's probably a library for that
@@ -24,10 +26,10 @@ class Video:
     @staticmethod
     def findByFilename(filename):
         if(filename=='' or filename==None):
-            print('findByFilename called with no filename')
+            logging.error('findByFilename called with no filename')
             return None
 
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             # videos=[] # probably impliment search in another function
@@ -35,8 +37,9 @@ class Video:
                 video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
                 # videos += video
                 return video
-            
-            print('Video.findByFilename - video not found: ', filename)
+            # not always an error, telnet can return partial filenames for some reason
+            # todo: don't trust telnet maybe double check return value when it will important actions?
+            logging.error('Video.findByFilename - video not found in db with filename: ' + filename)
             return None
 
     @staticmethod
@@ -44,16 +47,15 @@ class Video:
         '''
         get database record for video by id
         '''
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            # videos=[] # probably impliment search in another function
             for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
                 video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
-                # videos += video
                 return video
             
-            print('Video.load - video not found: ', videoId)
+            logging.error('Video.load - video id not found: ' + videoId)
+
             return None
 
 
@@ -62,7 +64,7 @@ class Video:
         deletes from db only
         todo: move file to another folder and mark as deleted in db
         '''
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             c.execute('delete from video where videoId =:videoId;', (self.videoId, ))
@@ -72,7 +74,7 @@ class Video:
 
     def save(self):
         ''' update video database record or create if videoId < 1 '''
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             # could probably have some kind of simple object returned by a function on Video

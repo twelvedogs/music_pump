@@ -1,25 +1,22 @@
+import logging
 import random
 from flask import jsonify # probably shouldn't need this here
 import sqlite3
 import telnetlib
 import time
 from video import Video
+import cfg
 
-# todo: config file
-path = 'F:\\code\\music_pump\\downloads\\'
-# path = '~/Videos/' # linux
+
 # telnet connection
 tn = None
 def telnet_connect():
     global tn
 
-    host = 'localhost' # ip/hostname
-    password = 'test' # password, just jams it in once we're connected
-    port = '4212' # vlc default telnet port, probably don't change as using 23 or something requires root in linux
-
-    print('Connecting', host, port)
-    tn = telnetlib.Telnet(host, port) # default telnet: 23
-    telnet_command(password)
+    # print('Connecting: ', cfg.host, cfg.port)
+    logging.info('Connecting {} {}'.format(cfg.host, cfg.port))
+    tn = telnetlib.Telnet(cfg.host, cfg.port) # default telnet: 23
+    telnet_command(cfg.password)
 
 # todo: this should force new telnet commands to wait for old ones to finish?
 #       once we're on async might be able to handle it better
@@ -63,21 +60,24 @@ class Vlc:
         return telnet_command(cmd)
 
     def advance_queue(self):
-        conn = sqlite3.connect('video.db')
+        ''' try to advance to next song, add song if none found '''
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            print('trying to play queue order > ', self.crntOrder)
+            # print('trying to play queue order > ', self.crntOrder)
+            logging.info('Trying to play queue order > %s', self.crntOrder)
             rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crntOrder,))
             nextInQueue = rows.fetchone()
 
             # if no videos in queue add one and restart
             if(nextInQueue == None):
-                print('queue empty, adding and re-trying')
+                # print('queue empty, adding and re-trying')
+                logging.info('Internal queue empty, calling auto_queue() and waiting for re-try from wherever called this')
                 rows.close()
                 self.auto_queue()
-                # self.advance_queue()
 
             else:
+                logging.info('Playing next file in queue: %s', nextInQueue[2])
                 self.crntOrder = nextInQueue[3]
                 v = Video(nextInQueue[0], nextInQueue[1], nextInQueue[2])
                 self.play_now(v)
@@ -86,23 +86,31 @@ class Vlc:
         '''
         maintenance tasks like managing playlist/currently playing
         '''
-        print('tick current playing: ', self.crntVideo)
+        # TODO: this is only called by web browser and issues can arise when we're managing the next song
+        #       and this is called again before we're finished sorting out the next song
+        # TODO: if this is called and the other thing hasn't had a chance to query vlc and find the video this
+        #       skips out on current video
 
-        # need to be able to work from timeStarted or progress
-        # this needs to give the queue thing a chance to get the next video started
         if(not self.crntVideo): # or self.timeStarted + self.crntVideo.length > time.time() ): # timer not working yet
+            logging.info('tick: as far as the app knows nothing playing (this can happen before vlc is queried), calling advance_queue, it\'ll add a video to the queue if req')
+            
             self.advance_queue()
+        else:
+            # not logging this too noisy
+            print('tick: as far as the app knows vlc is playing: ', self.crntVideo)
+            self.get_video()
 
     def play_video(self, videoId, addedBy, after = True):
         '''
         insert video into queue by id, addedBy just for info
-        todo: rename to queue
+        TODO: rename to queue
         '''
-        print('playing video with id', videoId)
+        # print('playing video with id', videoId)
+        logging.info('something called play_video with id %s, play after this song is set to %s', videoId, after)
         video = Video.load(videoId)
         
         #insert into queue
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             # make a gap by moving all videos after this one along one
@@ -124,19 +132,19 @@ class Vlc:
         if(self.timeStarted >= time.time() - 10):
             return
 
-        # todo: hrm, might need to manage the vlc playlist instead
         # clear queue and add the new video
-        print('calling play now, this probably isn\'t the right thing')
+        # print('play_now: clearing VLC playlist and queueing \"' + video.filename + '\"')
+        logging.info('play_now: clearing VLC playlist and adding \"' + video.filename + '\" to it\'s queue')
         telnet_command('clear')
         self.timeStarted = time.time()
         self.crntVideo = video
         
         # play filename right now to vlc via telnet
-        longpath = 'file:///' + (path + video.filename).replace('\\','/')
+        longpath = 'file:///' + (cfg.path + video.filename).replace('\\','/')
         telnet_command('add '+ longpath + '')
 
     def get_queue(self):
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
 
@@ -176,7 +184,7 @@ class Vlc:
     def clear_queue(self):
         ''' clears out the queue table, doesn't change vlc (yet)'''
 
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             c.execute('delete from queue')
@@ -187,7 +195,7 @@ class Vlc:
     def auto_queue(self):
         ''' queues a random video, todo: currently not called'''
         print('trying to auto queue')
-        conn = sqlite3.connect('video.db')
+        conn = sqlite3.connect(cfg.db_path)
 
         video_to_add = -1
         with conn:
@@ -216,7 +224,7 @@ class Vlc:
             FROM cumulative_bounds where lower_cum_bound<:rand and upper_cum_bound>:rand;'''
             rand = random.random()
 
-            # todo: it's 
+             
             for row in c.execute(rando, { 'rand': rand } ):
                 print(row)
                 video_to_add = row[0]
@@ -236,34 +244,34 @@ class Vlc:
         todo: theoretically the script should know this before it asks as long as vlc
                 isn't allowed to progress through it's own playlist
         '''
+
         try:
             # don't beat the crap out of the telnet server
             if(self.lastUpdated < time.time() - 7):
                 filename = telnet_command('get_title').strip()
-                # todo: deal with missing files
-                res = Video.findByFilename(filename)
-
-                # seconds elapsed in current video
-                # todo: calc from internal timer
-                elapsed = telnet_command('get_time').strip()
-                if(elapsed != ''):
-                    res.played = int(elapsed)
-                    self.elapsed = int(elapsed)
-                else:
-                    res.played = 0
-                    self.elapsed = 0
                 
-                res.length = int(telnet_command('get_length').strip())
-                res.playing = int(telnet_command('is_playing').strip())
+                # get video info from vlc
 
-                # only update if we made it
-                self.crntVideo = res
+                # todo: if file not found remove from db with backup (probably just dump record as json)
+                # todonext: this is getting none a few times in a row and re-queueing over and over
+                if(filename=='' or filename==None):
+                    logging.info('telnet: get_title returned empty string, probably no current song playing')
+                    self.crntVideo = None # always clear crntVideo if no current filename
+                else:
+                    # don't update from db if filename hasn't changed
+                    if(filename == self.crntVideo.filename):
+                        logging.info('vlc\'s currently playing filename \''+ filename + '\' unchanged')
+                    else:
+                        # pull video object from db record
+                        logging.info('got filename but it doesn\'t match crntVideo, reloading from db')
+                        self.crntVideo = Video.findByFilename(filename)
+                        logging.info('found filename \'%s\' from vlc in db, videoId: %s', filename, self.crntVideo.videoId)
+
                 self.lastUpdated = time.time() # seconds since epoch
 
-                # print('Updating crntVideo from vlc', self.elapsed, '/', self.crntVideo.length)
-
-        except Exception:
-            print('Failed to get current video info from VLC')
+        # currently on error unset
+        except Exception as err:
+            logging.info('Exception getting current video info from VLC:\n%s', str(err))
             self.crntVideo = None # might need to be more careful with this, if communication fails and this is unset then video will skip
 
         # no idea why this needs to be a copy
@@ -272,6 +280,25 @@ class Vlc:
         else:
             return None
 
+    def update_length(self):
+        pass
+        # this needs a lot of work
+
+        # seconds elapsed in current video
+        # todo: calc from internal timer
+        # elapsed = telnet_command('get_time').strip()
+        # if(elapsed != ''):
+        #     currentVideo.played = int(elapsed)
+        #     self.elapsed = int(elapsed)
+        # else:
+        #     currentVideo.played = 0
+        #     self.elapsed = 0
+        # 
+        # currentVideo.length = int(telnet_command('get_length').strip())
+        # currentVideo.playing = int(telnet_command('is_playing').strip())
+
+        # only update if we made it
+        # self.crntVideo = currentVideo
 
 
     def get_length(self):

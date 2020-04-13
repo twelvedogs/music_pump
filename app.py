@@ -24,6 +24,7 @@
     todo: !!!!! convert .webm or weird shit to mp4 !!!
     
 '''
+import logging
 from flask import Flask, jsonify, render_template, request
 from datetime import datetime
 from pathlib import Path
@@ -36,10 +37,11 @@ import youtube_dl
 from video import Video
 from vlc import Vlc
 
+import cfg
+
 app = Flask(__name__)
 
-path = 'F:\\code\\music_pump\\downloads\\'
-# path = '~/Videos/' # todo: config file
+
 vlc = Vlc()
 
 @app.route('/_get_length')
@@ -109,7 +111,7 @@ def rate_video():
     videoId = request.args.get('videoId')
     rating = request.args.get('rating')
 
-    conn = sqlite3.connect('video.db')
+    conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
 
@@ -119,13 +121,13 @@ def rate_video():
 
 # @app.route('/_insert_in_queue')
 # def insert_in_queue():
-#     ''' insert a video into the queue '''
+#     ''' insert a video into the queue after this song '''
 #     videoId = request.args.get('videoId')
 #     addedBy = request.args.get('addedBy')
 # 
 #     vlc.play_video(videoId, addedBy, after=True)
 # 
-#     conn = sqlite3.connect('video.db')
+#     conn = sqlite3.connect(cfg.db_path)
 #     with conn:
 #         c = conn.cursor()
 #         # make a gap by moving all videos after this one along one
@@ -147,7 +149,7 @@ def auto_queue():
 
 
 # def play_queue():
-#     conn = sqlite3.connect('video.db')
+#     conn = sqlite3.connect(cfg.db_path)
 #     with conn:
 #         c = conn.cursor()
 #         c.execute('select * from queue order by order asc')
@@ -186,7 +188,7 @@ def get_queue():
 def list_videos():
     '''return big video list to client'''
 
-    conn = sqlite3.connect('video.db')
+    conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
 
@@ -217,7 +219,7 @@ def ydlhook(s):
 @app.route('/_clean_video_list')
 def clean_video_list():
     ''' cull bad entries and other cleanup stuff'''
-    conn = sqlite3.connect('video.db')
+    conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
         prevTitle=''
@@ -264,12 +266,13 @@ def download_video():
     # todo: need to specify download format of h264 for rpi
     # todo: need to catch malformed url
     # todo: check if folder exists probably
-    ydl = youtube_dl.YoutubeDL({'outtmpl': path + '%(title)s - %(id)s.%(ext)s', 
-    'format': 'bestvideo+bestaudio/best', 
-    'getfilename': True, 
-    'keep': True, 
-    # 'restrictfilenames': True # makes it too hard to guess file name for now
+    ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.path + '%(title)s - %(id)s.%(ext)s', 
+        'format': 'bestvideo+bestaudio/best', 
+        'getfilename': True, 
+        'keep': True, 
+        # 'restrictfilenames': True # makes it too hard to guess file name for now
     }) 
+
     # 'format': '137,136'}) # 'listformats': True
     ydl.add_progress_hook(ydlhook)
     with ydl:
@@ -290,30 +293,32 @@ def download_video():
 
     # not sure where to find the actual filename it was saved as
     # todo: this is dumb
-    # badChars = '"\'/&'
-    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_')
-
-    
+    # badChars = '"\'/&|'
+    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_').replace('|','_')
 
     # test if we had to merge the files into an mkv
     # todo: clean up
     try:
-        print('trying ' + path + filename + '.' + youtubeResponse['ext'])
-        my_file = Path(path + filename + '.' + youtubeResponse['ext']) # use os.join
+        logging.info('looking for downloaded video at \"%s%s.%s\" ', cfg.path, filename, youtubeResponse['ext'])
+        my_file = Path(cfg.path + filename + '.' + youtubeResponse['ext']) # use os.join
         if not my_file.is_file():
-            print(youtubeResponse['ext'] + ' not found trying mkv')
+            logging.info('couldn\'t find \"%s%s.%s\"', cfg.path, filename, youtubeResponse['ext'])
+            # print(youtubeResponse['ext'] + ' not found trying mkv')
         else:
+            logging.info('found file \"%s%s.%s\" using youtube-dls extention', cfg.path, filename, youtubeResponse['ext'])
             filename += '.' + youtubeResponse['ext']
 
-        print('trying ' + path + filename + '.mkv')
-        my_file = Path( path + filename + '.mkv') # use os.join
+        # print('trying ' + cfg.path + filename + '.mkv')
+        my_file = Path( cfg.path + filename + '.mkv') # use os.join
         if not my_file.is_file():
-            print('file not found')
+            logging.info('couldn\'t find ' + cfg.path + filename + '.mkv')
         else:
+            logging.info('video found at ' + cfg.path + filename + '.mkv')
             filename += '.mkv'
 
-    except:
-        print('failed to find file')
+    except Exception as err:
+        logging.error('failed to determine filename error:\n %s', str(err))
+        filename += '.webm' # pretty hacky, most likely couldn't find because webm though
 
     print('guessing filename should be: ' + filename)
     # strip stuff like (Official Video) from title
@@ -328,8 +333,18 @@ def download_video():
 def index():
     return render_template('index.html')
 
+def setup_logging():
+    print('starting logger')
+    logging.basicConfig(filename='app.log', level=logging.DEBUG)
+    # logger = logging.get_logger()
+    logging.info('Started')
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+
 if __name__ == '__main__':
-    
-    #app.debug = True
+    setup_logging()
+    print('started loggin? who knows')
+    app.debug = False
     # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=80)
