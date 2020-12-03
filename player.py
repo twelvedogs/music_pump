@@ -1,58 +1,97 @@
 import logging
 import random
+import pychromecast
 from flask import jsonify # probably shouldn't need this here
 import sqlite3
-import telnetlib
+#import telnetlib
 import time
 from video import Video
 import cfg
 
+chromecast = 'Office'
 
-class player:
+
+def get_chromecast():
+    # dunno what this is but the first element is the list of ccasts
+    chromecasts = pychromecast.get_chromecasts()[0]
+    print('chromecasts', chromecasts)
+    for cc in chromecasts:
+        device = cc.device
+        print('device', device)
+
+        if(device.friendly_name=='Office'):
+            print('Found office')
+            cc.wait()
+            return cc.media_controller
+            # mc.play_media("http://192.168.1.10:5000/downloads/Au_Ra - X Games - bWGH2s2ZX0Y.mp4", content_type = "video/mp4")
+            # mc.block_until_active()
+            # mc.play()    
+
+
+class Player:
     # maybe init with URL?
     def __init__(self):
         self.downloading = False
         self.crnt_video = None
-        self.timeStarted = -1
+        self.time_started = -1
         self.elapsed = 0 # seconds since song start
         self.crntOrder = -1
         self.pause = 0
         self.lastUpdated = -1
 
+        self.mc = get_chromecast()
+
+    @staticmethod
+    def get_play_targets():
+        chromecasts = pychromecast.get_chromecasts()[0]
+        devices = []
+
+        for cc in chromecasts:
+            device = cc.device
+            devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs
+            # [{ device.friendly_name, device.model_name, device.uuid }]
+            print(device.friendly_name, device.model_name)
+
+        return devices
+
+    def play_on_chromecast(self, file):
+        print('calling play on ' + file)
+        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, content_type = 'video/mp4')
+        self.mc.block_until_active()
+        self.mc.play()  
+
     def advance_queue(self):
-        ''' try to advance to next song, add song if none found '''
+        ''' 
+        try to advance to next song, add song if none found 
+        '''
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             # print('trying to play queue order > ', self.crntOrder)
             logging.info('Trying to play queue order > %s', self.crntOrder)
             rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crntOrder,))
-            nextInQueue = rows.fetchone()
+            next_in_queue = rows.fetchone()
 
             # if no videos in queue add one and restart
-            if(nextInQueue == None):
+            if(next_in_queue == None):
                 # print('queue empty, adding and re-trying')
                 logging.info('Internal queue empty, calling auto_queue() and waiting for re-try from wherever called this')
                 rows.close()
                 self.auto_queue()
 
             else:
-                logging.info('Playing next file in queue: %s', nextInQueue[2])
-                self.crntOrder = nextInQueue[3]
-                v = Video(nextInQueue[0], nextInQueue[1], nextInQueue[2])
+                logging.info('Playing next file in queue: %s', next_in_queue[2])
+                self.crntOrder = next_in_queue[3]
+                v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
                 self.play_now(v)
 
     def tick(self):
         '''
-        maintenance tasks like managing playlist/currently playing
+        should only check chromecast is still alive
+        TODO: call this from web app
         '''
-        # TODO: this is only called by web browser and issues can arise when we're managing the next song
-        #       and this is called again before we're finished sorting out the next song
-        # TODO: if this is called and the other thing hasn't had a chance to query vlc and find the video this
-        #       skips out on current video
-
-        if(not self.crnt_video): # or self.timeStarted + self.crnt_video.length > time.time() ): # timer not working yet
-            logging.info('tick: as far as the app knows nothing playing (this can happen before vlc is queried), calling advance_queue, it\'ll add a video to the queue if req')
+        if(not self.crnt_video): # or self.time_started + self.crnt_video.length > time.time() ): # timer not working yet
+            logging.info('tick: as far as the app knows nothing playing (this can happen before player is queried), calling advance_queue, it\'ll add a video to the queue if req')
             
             self.advance_queue()
         else:
@@ -60,7 +99,7 @@ class player:
             print('tick: as far as the app knows currently playing: ', self.crnt_video)
             self.get_video()
 
-    def play_video(self, videoId, addedBy, after = True):
+    def play_video(self, videoId, addedBy, after = False):
         '''
         insert video into queue by id, addedBy just for info
         TODO: rename to queue
@@ -84,24 +123,26 @@ class player:
             # probably should just add to queue and stop current song?
             self.play_now(video)
 
-    # this should be an internal function for the vlc object that is called after the queue is advanced
-    # push file to vlc, needs to be from the queue, probably needs to be renamed
+    # this should be an internal function for the player object that is called after the queue is advanced
+    # push file to player, needs to be from the queue, probably needs to be renamed
     def play_now(self, video):
 
         # rate limiter, can't play a song more than once every 10 sec (for now)
-        if(self.timeStarted >= time.time() - 10):
+        if(self.time_started >= time.time() - 10):
             return
 
         # clear queue and add the new video
-        # print('play_now: clearing VLC playlist and queueing \"' + video.filename + '\"')
+        # print('play_now: clearing player playlist and queueing \"' + video.filename + '\"')
         logging.info('play_now: clearing playlist and adding \"' + video.filename + '\" to queue')
 
-        self.timeStarted = time.time()
+        self.time_started = time.time()
         self.crnt_video = video
         
-        # play filename right now to vlc via telnet
-        longpath = 'file:///' + (cfg.path + video.filename).replace('\\','/')
-        # telnet_command('add '+ longpath + '')
+        # play filename right now to chromecast
+        # long_path = 'file:///' + (cfg.path + video.filename).replace('\\','/')
+        # telnet_command('add '+ long_path + '')
+        self.play_on_chromecast(video.filename)
+
 
     def get_queue(self):
         conn = sqlite3.connect(cfg.db_path)
@@ -205,44 +246,23 @@ class player:
         ''' 
         get current video but look it up in db to get extra info and pass it all back
         need: length, rating, who added
-        todo: theoretically the script should know this before it asks as long as vlc
+        todo: theoretically the script should know this before it asks as long as the chromecast
                 isn't allowed to progress through it's own playlist
         '''
 
         try:
-            # don't beat the crap out of the telnet server
-            if(self.lastUpdated < time.time() - 7):
-                filename = telnet_command('get_title').strip()
-                
-                # get video info from vlc
-
-                # todo: if file not found remove from db with backup (probably just dump record as json)
-                # todonext: this is getting none a few times in a row and re-queueing over and over
-                if(filename=='' or filename==None):
-                    logging.info('telnet: get_title returned empty string, probably no current song playing')
-                    self.crnt_video = None # always clear crnt_video if no current filename
-                else:
-                    # don't update from db if filename hasn't changed
-                    if(filename == self.crnt_video.filename):
-                        logging.info('vlc\'s currently playing filename \''+ filename + '\' unchanged')
-                    else:
-                        # pull video object from db record
-                        logging.info('got filename but it doesn\'t match crnt_video, reloading from db')
-                        self.crnt_video = Video.findByFilename(filename)
-                        logging.info('found filename \'%s\' from vlc in db, videoId: %s', filename, self.crnt_video.videoId)
-
-                self.lastUpdated = time.time() # seconds since epoch
+            # no idea why this needs to be a copy
+            if(self.crnt_video):
+                return dict.copy(self.crnt_video.__dict__)
+            else:
+                return None
 
         # currently on error unset
         except Exception as err:
-            logging.info('Exception getting current video info from VLC:\n%s', str(err))
+            logging.info('Exception getting current video info:\n%s', str(err))
             self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
-
-        # no idea why this needs to be a copy
-        if(self.crnt_video):
-            return dict.copy(self.crnt_video.__dict__)
-        else:
             return None
+
 
     def update_length(self):
         pass

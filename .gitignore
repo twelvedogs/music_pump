@@ -4,3 +4,4 @@ downloads/
 *.7z
 ffmpeg.exe
 app.log
+video.db

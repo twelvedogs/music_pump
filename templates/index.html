@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 {% block body %}
 
+<select id="play_targets"></select><input type=button onclick="get_play_targets()" value="get play targets">
 
 <div class="container-fluid">
   <div class="row">
@@ -57,8 +58,6 @@
       </div>
   </div>
 </div>
-
-<!-- <text id=rating>5</text><button onclick="rate_video($('id').val())" class="btn btn-primary" >rate</button><br> -->
 
   <div class="container-fluid">
       <div class="row">

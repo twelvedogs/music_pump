@@ -264,7 +264,7 @@ class Vlc:
                     else:
                         # pull video object from db record
                         logging.info('got filename but it doesn\'t match crntVideo, reloading from db')
-                        self.crntVideo = Video.findByFilename(filename)
+                        self.crntVideo = Video.find_by_filename(filename)
                         logging.info('found filename \'%s\' from vlc in db, videoId: %s', filename, self.crntVideo.videoId)
 
                 self.lastUpdated = time.time() # seconds since epoch

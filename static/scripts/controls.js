@@ -51,20 +51,6 @@ $(function() {
     // $('input[name=a]').focus();
 });
 
-function raw_command(cmd, callback){
-    $.getJSON($SCRIPT_ROOT + '/_raw_command', {
-        cmd: cmd,
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
-        }else{
-          if(callback)
-            callback(data.result);
-          console.log(data.result);
-        }
-    });
-}
-
 function play_pause(){
     $.getJSON($SCRIPT_ROOT + '/_play_pause', {
       }, function(data) {
@@ -96,7 +82,7 @@ function update_time(){
 
   // don't do a full update too often, just update the progress bar
   if(crntTime> (lastCalled + hardUpdateTime)){
-    get_video();
+    // get_video();
     lastCalled = crntTime;
   }else{
     played += softUpdateTime / 1000;
@@ -190,6 +176,22 @@ function delete_video(id){
     });
 }
 
+function get_play_targets(){
+  $.getJSON($SCRIPT_ROOT + '/_get_play_targets', {}, function(data) {
+        if(data.result.length===0){
+          console.log('no data');
+          $.growl.error({ message: 'no play targets'});
+        }else{
+          $.growl.notice({ message: 'found play targets' });
+          $('#play_targets').empty()
+          $.each(data.result, function(i, val){
+            $('#play_targets').append(new Option(val.name, val.uuid));
+          });
+          console.log(data.result);
+        }
+    });
+}
+
 function play_video(id){
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
@@ -255,8 +257,10 @@ function get_queue(){
 }
 
 /**
- * get the video list and populate the controls that manage it,
+ * set rating for a song then refresh list
+ * and populate the controls that manage it,
  * currently just #videoUL
+ * todo: duplicated code with get_list()
  */
 function rate(videoId, rating){
   $.getJSON($SCRIPT_ROOT + '/_rate', {
@@ -314,16 +318,4 @@ function auto_queue(){
       function(data) {
         console.log(data);
         });
-}
-
-function rate_video(){
-    $.getJSON($SCRIPT_ROOT + '/_rate_video', {
-        rating: '5',
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no response')
-        }else{
-          alert('done')
-        }
-    });
 }

@@ -3,7 +3,7 @@
     Video dl/player
     ~~~~~~~~~~~~~~
 
-    FUCK THIS player SHIT, it's going in the bin
+    FUCK THIS VLC SHIT, it's going in the bin
     move to pychromecast
 
     web site where user can
@@ -15,7 +15,6 @@
     todo: save often can't find filename and breaks
     todo: next is broken
     todo: video time is broken
-    todo: launch/relaunch player with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
     todo: auto-set stupid volume level when launching player with render target
     todo: clear queue on launch (unless re-launched recently?)
     todo: don't auto-queue if video is already in queue table (ie: has already played)
@@ -43,7 +42,7 @@ import cfg
 
 app = Flask(__name__)
 
-
+# get an instance of the player class that knows how to talk to chromecasts
 player = Player()
 
 @app.route('/_get_length')
@@ -52,7 +51,7 @@ def get_length():
     get the length of the currently playing track
     used for slider animation and 
     '''
-    return jsonify(result=player.crntVideo.length)
+    return jsonify(result=player.crnt_video.length)
 
 @app.route('/_play_pause')
 def play_pause():
@@ -61,14 +60,14 @@ def play_pause():
     '''
     player.pause()
 
-    # telnet_command('pause')
     return jsonify(result=True)
 
 @app.route('/_delete_video')
 def delete_video():
     video = Video.load(request.args.get('videoId'))
     video.delete()
-
+    # TODO: remove from queue
+    # TODO: update list
     return jsonify(result=True)
 
 @app.route('/_tick')
@@ -79,9 +78,22 @@ def tick():
 
 @app.route('/_play_video')
 def play_video():
-    player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
+    after = request.args.get('after')=='True' # after is false if param "after" != "true"
+
+    player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
 
     return jsonify(result=True) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+
+
+@app.route('/_get_play_targets')
+def get_play_targets():
+    players = Player.get_play_targets()
+
+    # after = request.args.get('after')=='True' # after is false if param "after" != "true"
+    # player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
+
+    return jsonify(result=players) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+
 
 
 @app.route('/_get_status')
@@ -89,6 +101,7 @@ def get_status():
     '''
     get all information required to update the interface
     todo: should this just be maintained and returned when requested?
+            probably just return player
     '''
     result = {}
     result.video = player.get_video()
@@ -100,16 +113,10 @@ def get_status():
 def get_video():
     return jsonify(result=player.get_video())
 
-@app.route('/_raw_command')
-def raw_command():
-    ''' pass command directly to player, get rid of this later '''
-    cmd = request.args.get('cmd')
-
-    return jsonify(result=player.raw(cmd))
-
 @app.route('/_rate')
 def rate_video():
-    # todo: validate input
+    # TODO: validate input
+    # TODO: video.rate(id, rating)
     videoId = request.args.get('videoId')
     rating = request.args.get('rating')
 
@@ -121,45 +128,13 @@ def rate_video():
 
     return jsonify(result=True)
 
-# @app.route('/_insert_in_queue')
-# def insert_in_queue():
-#     ''' insert a video into the queue after this song '''
-#     videoId = request.args.get('videoId')
-#     addedBy = request.args.get('addedBy')
-# 
-#     player.play_video(videoId, addedBy, after=True)
-# 
-#     conn = sqlite3.connect(cfg.db_path)
-#     with conn:
-#         c = conn.cursor()
-#         # make a gap by moving all videos after this one along one
-#         c.execute('update queue set order = order + 1 where order > ?', (player.crntOrder, ))
-#         # insert after current
-#         # player.play_next(videoId)
-#         # player.play_video(videoId)
-#         c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, player.crntOrder + 1 ))
-# 
-#     return jsonify(result=True)
-
 @app.route('/_auto_queue')
 def auto_queue():
     ''' 
     currently: check if queue is down to one or less videos, then queue one
-    todo: this doesn't need to be called from interface
+    TODO: this doesn't need to be called from interface
     '''
     return jsonify(result=player.auto_queue())
-
-
-# def play_queue():
-#     conn = sqlite3.connect(cfg.db_path)
-#     with conn:
-#         c = conn.cursor()
-#         c.execute('select * from queue order by order asc')
-#         if(c.rowcount==0):
-#             auto_queue()
-#             return
-# 
-#         return jsonify(result=True)
 
 @app.route('/_add_to_queue')
 def add_to_queue():
@@ -188,11 +163,12 @@ def get_queue():
     return jsonify(result=player.get_queue())
 
 
-
-
 @app.route('/_list_videos')
 def list_videos():
-    '''return big video list to client'''
+    '''
+    return big video list to client
+    # TODO: video.get_all() or something
+    '''
 
     conn = sqlite3.connect(cfg.db_path)
     with conn:
@@ -215,12 +191,17 @@ def list_videos():
 
 
 def ydlhook(s):
-    ''' just printing atm, need to pass back to clients '''
+    ''' 
+    just printing atm, need to pass back to clients 
+    TODO: status via websocket
+    '''
     try:
         if(s['status']!='finished'):
+            # TODO: push completion into websocket
             print('ydlhook: ' + s['_percent_str'])
     except:
         print('ydlhook failed: ', s)
+        # TODO: push completion into websocket
 
 @app.route('/_clean_video_list')
 def clean_video_list():
