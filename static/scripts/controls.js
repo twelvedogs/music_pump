@@ -126,6 +126,7 @@ function set_play_state(p){
 }
 
 // this is misnamed i think probably should be "auto-add queue item"
+// no longer used, hopefull handled via listeners on server
 function tick(){
   $.getJSON($SCRIPT_ROOT + '/_tick', {
     }, function(data) {
@@ -139,7 +140,7 @@ function get_video(){
         if(data === null || data.result === null){
           $('#currentlyPlaying').val('Nothing playing');
           update_time();
-          tick();
+          // tick();
         }else{
           $('#currentlyPlaying').val(data.result.filename);
 
@@ -150,7 +151,7 @@ function get_video(){
           
           set_progress();
 
-          set_play_state(data.result.playing);
+          // set_play_state(data.result.playing);
 
         }
       });

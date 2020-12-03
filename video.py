@@ -5,6 +5,9 @@ import cfg
 
 # this not being serialisable sucks balls, there's probably a library for that
 class Video:
+    '''
+    video class, represents a video you can play
+    '''
     def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01', 
                 dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url=''):
         # if(videoId > 0 ):

@@ -3,3 +3,4 @@ downloads/
 *.mp4
 *.7z
 ffmpeg.exe
+app.log

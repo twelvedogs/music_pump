@@ -3,18 +3,20 @@
     Video dl/player
     ~~~~~~~~~~~~~~
 
+    FUCK THIS player SHIT, it's going in the bin
+    move to pychromecast
+
     web site where user can
         add videos via youtube-dl
         remove videos via mv to deleted directory
         rate videos into database
-        play videos via vlc, locally or remotely
+        play videos via player, locally or remotely
 
     todo: save often can't find filename and breaks
     todo: next is broken
-    todo: show current VLC state better
     todo: video time is broken
-    todo: launch/relaunch vlc with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
-    todo: auto-set stupid volume level when launching vlc with render target
+    todo: launch/relaunch player with new chromecast target using https://github.com/balloob/pychromecast (render change not supported via telnet yet)
+    todo: auto-set stupid volume level when launching player with render target
     todo: clear queue on launch (unless re-launched recently?)
     todo: don't auto-queue if video is already in queue table (ie: has already played)
     todo: multi directory support
@@ -25,7 +27,7 @@
     
 '''
 import logging
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from datetime import datetime
 from pathlib import Path
 import sqlite3
@@ -35,14 +37,14 @@ import time
 import youtube_dl
 
 from video import Video
-from vlc import Vlc
+from player import Player
 
 import cfg
 
 app = Flask(__name__)
 
 
-vlc = Vlc()
+player = Player()
 
 @app.route('/_get_length')
 def get_length():
@@ -50,14 +52,14 @@ def get_length():
     get the length of the currently playing track
     used for slider animation and 
     '''
-    return jsonify(result=vlc.crntVideo.length)
+    return jsonify(result=player.crntVideo.length)
 
 @app.route('/_play_pause')
 def play_pause():
     '''
-    fire play/pause button press at vlc
+    fire play/pause button press at player
     '''
-    vlc.pause()
+    player.pause()
 
     # telnet_command('pause')
     return jsonify(result=True)
@@ -71,15 +73,15 @@ def delete_video():
 
 @app.route('/_tick')
 def tick():
-    vlc.tick()
+    player.tick()
 
-    return jsonify(result=True) # {'title': vlc.crntVideo.title}) # probably won't be updated for a second
+    return jsonify(result=True) # {'title': player.crntVideo.title}) # probably won't be updated for a second
 
 @app.route('/_play_video')
 def play_video():
-    vlc.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
+    player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=False) # todo: after should be True
 
-    return jsonify(result=True) # {'title': vlc.crntVideo.title}) # probably won't be updated for a second
+    return jsonify(result=True) # {'title': player.crntVideo.title}) # probably won't be updated for a second
 
 
 @app.route('/_get_status')
@@ -89,21 +91,21 @@ def get_status():
     todo: should this just be maintained and returned when requested?
     '''
     result = {}
-    result.video = vlc.get_video()
-    result.queue = vlc.get_queue()
+    result.video = player.get_video()
+    result.queue = player.get_queue()
 
     return jsonify(result=result)
 
 @app.route('/_get_video')
 def get_video():
-    return jsonify(result=vlc.get_video())
+    return jsonify(result=player.get_video())
 
 @app.route('/_raw_command')
 def raw_command():
-    ''' pass command directly to VLC, get rid of this later '''
+    ''' pass command directly to player, get rid of this later '''
     cmd = request.args.get('cmd')
 
-    return jsonify(result=vlc.raw(cmd))
+    return jsonify(result=player.raw(cmd))
 
 @app.route('/_rate')
 def rate_video():
@@ -125,17 +127,17 @@ def rate_video():
 #     videoId = request.args.get('videoId')
 #     addedBy = request.args.get('addedBy')
 # 
-#     vlc.play_video(videoId, addedBy, after=True)
+#     player.play_video(videoId, addedBy, after=True)
 # 
 #     conn = sqlite3.connect(cfg.db_path)
 #     with conn:
 #         c = conn.cursor()
 #         # make a gap by moving all videos after this one along one
-#         c.execute('update queue set order = order + 1 where order > ?', (vlc.crntOrder, ))
+#         c.execute('update queue set order = order + 1 where order > ?', (player.crntOrder, ))
 #         # insert after current
-#         # vlc.play_next(videoId)
-#         # vlc.play_video(videoId)
-#         c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, vlc.crntOrder + 1 ))
+#         # player.play_next(videoId)
+#         # player.play_video(videoId)
+#         c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, player.crntOrder + 1 ))
 # 
 #     return jsonify(result=True)
 
@@ -145,7 +147,7 @@ def auto_queue():
     currently: check if queue is down to one or less videos, then queue one
     todo: this doesn't need to be called from interface
     '''
-    return jsonify(result=vlc.auto_queue())
+    return jsonify(result=player.auto_queue())
 
 
 # def play_queue():
@@ -161,25 +163,29 @@ def auto_queue():
 
 @app.route('/_add_to_queue')
 def add_to_queue():
-    ''' add a video to the end of queue '''
+    '''
+    add a video to the end of queue
+    '''
     videoId = request.args.get('videoId')
     addedBy = request.args.get('addedBy')
 
-    return jsonify(result=vlc.play_video(videoId, addedBy))
+    return jsonify(result=player.play_video(videoId, addedBy))
 
 @app.route('/_clear_queue')
 def clear_queue():
     '''
     clear out the database queue
     '''
-    return jsonify(result=vlc.clear_queue())
+    return jsonify(result=player.clear_queue())
 
 
 @app.route('/_get_queue')
 def get_queue():
-    '''return current queue to client'''
+    '''
+    return current queue to client
+    '''
 
-    return jsonify(result=vlc.get_queue())
+    return jsonify(result=player.get_queue())
 
 
 
@@ -292,10 +298,10 @@ def download_video():
         youtubeResponse = result
 
     # not sure where to find the actual filename it was saved as
-    # todo: this is dumb
+    # todo: this is dumb, pull name from youtube dl somehow (who knows)
     # badChars = '"\'/&|'
-    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_').replace('|','_')
-
+    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_').replace('|','_').replace('__','_')
+	# todo: youtubedl replaces multiple underscores with a single underscore
     # test if we had to merge the files into an mkv
     # todo: clean up
     try:
@@ -329,22 +335,25 @@ def download_video():
     
     return str(vid) #jsonify(result=vid)
 
+# allow downloads from directory, should be just served by the webserver
+@app.route('/downloads/<path:path>')
+def send_js(path):
+    return send_from_directory('downloads', path)
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 def setup_logging():
-    print('starting logger')
     logging.basicConfig(filename='app.log', level=logging.DEBUG)
     # logger = logging.get_logger()
     logging.info('Started')
-
+    # shut up the werkzeug logger 
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
 
 if __name__ == '__main__':
     setup_logging()
-    print('started loggin? who knows')
     app.debug = False
     # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=80)
