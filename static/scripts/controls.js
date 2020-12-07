@@ -253,6 +253,22 @@ function play_video(id){
       });
 }
 
+function get_file_info(videoId){
+  
+  $.getJSON($SCRIPT_ROOT + '/_get_file_info', {
+        videoId: videoId
+    }, function(data) {
+      
+      if(data.result.length===0){
+        $.growl.error({ message: 'something shat itself' });
+      }else{
+        // $.growl.notice({ message: 'file info ' + data.result });
+        $('.video_info_'+videoId).html(data.result.codec_name);
+        console.log(data.result);
+      }
+    });
+}
+
 function download_video(){
   $.growl.notice({ message: 'Downloading ' + $('#youtubeUrl').val() });
   $.getJSON($SCRIPT_ROOT + '/_download_video', {
@@ -294,6 +310,19 @@ function process_queue(){
   });
 }
 
+function set_queue_position(order){
+  $.getJSON($SCRIPT_ROOT + '/_set_queue_position', {
+    order: order
+  }, function(data) {
+
+      if(data.result.length===0) {
+        console.log('blarp')
+      } else {
+        
+      }
+  });
+}
+
 /** get the current queue */
 function get_queue(){
     $.getJSON($SCRIPT_ROOT + '/_get_queue', {
@@ -306,7 +335,7 @@ function get_queue(){
         } else {
 
           $.each(data.result, function(i, val) {
-              fileList += '<a onclick="play_video(\''+val.videoId+'\')">'+val.order+' - '+val.title+'</a><br>';
+              fileList += '<a onclick="set_queue_position(\''+val.order+'\')">'+val.order+' - '+val.title+'</a><br>';
           });
           $('#queue').html(fileList);
         }
@@ -352,11 +381,16 @@ function get_list(){
 function draw_video_list(){
   var videoULLi = '';
   $.each(videos, function(i, val) {
-    videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
+    videoULLi += '<li class="align-items-center"><a>' + 
+      val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
+      'Codec: <span class="video_info_' + val.videoId + '"></span>' + 
+      '</a>' +
       '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
       '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
       '<button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
-      '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
+      '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
+      '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
+      '</li>'
   });
   $('#videoUL').html(videoULLi);
 }

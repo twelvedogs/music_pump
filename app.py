@@ -23,6 +23,7 @@
 '''
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
+from videoprops import get_video_properties
 from datetime import datetime
 from pathlib import Path
 import sqlite3
@@ -49,6 +50,23 @@ def get_length():
     '''
     return jsonify(result=player.crnt_video.length)
 
+@app.route('/_set_queue_position')
+def set_queue_position():
+    '''
+    this works ridiculously well, must be something wrong lol
+    TODO: what happens when we're out of queue bounds - probably nothing since they'd have to provide an order that is out of bound manually
+    '''
+    order = int(request.args.get('order'))
+    player.crnt_order = order - 1
+    player.advance_queue()
+    
+    return jsonify(result=True)
+
+
+@app.route('/_get_file_info')
+def get_file_info():
+    video = Video.load(request.args.get('videoId'))
+    return jsonify(result=get_video_properties(cfg.path + video.filename))
 
 @app.route('/_delete_video')
 def delete_video():
@@ -102,14 +120,9 @@ def play_video():
 
 @app.route('/_get_play_targets')
 def get_play_targets():
-
     targets = Player.get_play_targets()
 
-    # after = request.args.get('after')=='True' # after is false if param "after" != "true"
-    # player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
-
     return jsonify(result=targets) # {'title': player.crntVideo.title}) # probably won't be updated for a second
-
 
 
 @app.route('/_get_status')
@@ -131,7 +144,6 @@ def get_video():
 
 @app.route('/_rate')
 def rate_video():
-    # TODO: validate input
     # TODO: video.rate(id, rating)
     videoId = request.args.get('videoId')
     rating = request.args.get('rating')
@@ -142,7 +154,7 @@ def rate_video():
 
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
 
-    return jsonify(result=list_videos())
+    return list_videos()
 
 @app.route('/_process_queue')
 def process_queue():
@@ -264,7 +276,7 @@ def download_video():
     if(isPlaylist>-1):
         url=url[0:isPlaylist]
 
-    # todo: need to specify download format of h264 for rpi & chromecast
+    # todo: need to specify download format of h264 for rpi & chromecast - probably just convert file as specifying format will get lower quality
     # todo: need to catch malformed url
     # todo: check if folder exists probably
     ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.path + '%(title)s - %(id)s.%(ext)s', 
@@ -323,7 +335,7 @@ def download_video():
 
     print('guessing filename should be: ' + filename)
     # strip stuff like (Official Video) from title
-    # todo: this is dumb, maybe have a list of banned phrases
+    # todo: this is dumb, maybe have a list of banned phrases, maybe just regex out everything between () or [] or ""
     title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
     vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()

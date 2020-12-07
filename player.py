@@ -16,11 +16,12 @@ def get_chromecast():
 
     for cc in chromecasts:
         device = cc.device
-        print('device', device)
+        # print('device', device)
 
         if(device.friendly_name=='Office'):
-            print('Found office')
+            # print('Found office')
             cc.wait()
+            cc.set_volume(0.01)
             return cc.media_controller
             # mc.play_media("http://192.168.1.10:5000/downloads/Au_Ra - X Games - bWGH2s2ZX0Y.mp4", content_type = "video/mp4")
             # mc.block_until_active()
