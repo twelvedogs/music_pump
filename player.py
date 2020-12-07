@@ -55,7 +55,6 @@ class Player:
         for cc in chromecasts:
             device = cc.device
             devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs
-            # print(device.friendly_name, device.model_name)
 
         return devices
 
@@ -64,6 +63,7 @@ class Player:
         '''
         chromecast calls back on status change, sometimes called multiple so needs rate limiter for actions
         player_state=='UNKNOWN' probably means the chromecast is disconnected, it will have lost the listener anyway
+        TODO: is mc.status the same as the status passed in?
         '''
         # print(str(status.player_state), self.mc.status.idle_reason)
         # if(str(status.player_state)=='IDLE'):
@@ -71,6 +71,11 @@ class Player:
 
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
+            print(self.mc.status)
+
+        if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason == 'ERROR'):
+            print('IDLE status due to SHITTING ITSELF')
+            self.mc.status
             print(self.mc.status)
 
         # check if idle is a "new" status and ignore if not

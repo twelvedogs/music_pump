@@ -18,7 +18,6 @@
     todo: multi directory support
     todo: refresh single video info div in the file list
     todo: scan directory and auto-add missing to db
-    todo: !!!!! convert .webm or weird shit to mp4 !!!
     
 '''
 import logging
@@ -205,7 +204,7 @@ def list_videos():
         videos = []
 
         # dunno if this can be simplified
-        for row in c.execute('SELECT videoId, title, filename, rating, addedBy FROM video ORDER BY title desc'):
+        for row in c.execute('SELECT videoId, title, filename, rating, addedBy FROM video ORDER BY videoId desc'):
             video = {}
             video['videoId'] = row[0]
             video['title'] = row[1]
@@ -266,6 +265,10 @@ def clean_video_list():
 
 @app.route('/_convert_video')
 def convert_video():
+    # TODO: block this from being accessed more than once
+    # TODO: check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match
+    # TODO: check original resolution, don't change if under 1080p
+    # TODO: check not overwriting file
     videoId = request.args.get('videoId', '', type=int)
     video = Video.load(videoId)
     lastDot = video.filename.rindex('.')
@@ -273,7 +276,7 @@ def convert_video():
     print('gonna convert up ' + video.filename + ' to ' + newfilename)
     # TODO: make os independent
     os.chdir('F://code//music_pump//')
-    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, 'downloads/' + newfilename])
+    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf scale=1920:-1', 'downloads/' + newfilename])
 
     print('finished')
 
