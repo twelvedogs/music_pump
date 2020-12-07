@@ -356,6 +356,18 @@ function get_queue(){
     });
 }
 
+function scan_folder(){
+  $.getJSON($SCRIPT_ROOT + '/_scan_folder', {
+  }, function(data) {
+
+      if(data.result.length===0) {
+        console.log('nothing nothing')
+      } else {
+
+      }
+  });
+}
+
 /**
  * set rating for a song then refresh list
  */
@@ -401,9 +413,9 @@ function draw_video_list(){
       '</a>' +
       '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
       '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
-      '<button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
+      '<button class="btn" onclick="if(confirm(\'delete '+val.title+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
       '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
-      '<button class="btn" onclick="convert_video(\''+val.videoId+'\')">convert video</button>' +
+      '<button class="btn" onclick="if(confirm(\'convert '+val.title+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
       '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
       '</li>'
   });

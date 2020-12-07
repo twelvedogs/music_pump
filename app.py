@@ -2,23 +2,30 @@
 '''
     Video dl/player
     ~~~~~~~~~~~~~~
-
-    FUCK THIS VLC SHIT, it's going in the bin
-    move to pychromecast
-
     web site where user can
         add videos via youtube-dl
         remove videos via mv to deleted directory
         rate videos into database
         play videos via player, locally or remotely
 
-    todo: re-create database if non-existant so can add to .gitignore
-    todo: save often can't find filename and breaks
-    todo: clear queue on launch (unless re-launched recently?)
-    todo: multi directory support
-    todo: refresh single video info div in the file list
-    todo: scan directory and auto-add missing to db
-    
+    TODO: thumbnails like
+          ffmpeg -i InputFile.FLV -vframes 1 -an       -s 400x222 -ss 30 OutputFile.jpg
+                                  1 frame    no audio  size       30 sec in
+    TODO: re-create database if non-existant so can add to .gitignore
+    TODO: youtube-dl functionality often can't find filename and breaks
+    TODO: block youtube-dl while downloading
+
+    TODO: clear queue on launch (unless re-launched recently?)
+    TODO: multi directory support
+    TODO: refresh single video info div in the file list
+    TODO: scan directory and auto-add missing to db
+    TODO: update player
+    TODO: multiple files for each video
+    TODO: popup file info
+    TODO: add filtering on mature/user
+    TODO: add videojs
+    TODO: WEBSOCKETS!
+    TODO: db backups
 '''
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -41,6 +48,25 @@ app = Flask(__name__)
 
 # get an instance of the player class that knows how to talk to chromecasts
 player = Player()
+
+@app.route('/_scan_folder')
+def scan_folder():
+    # if(path=='' or path==None):
+    #     logging.error('scan_folder called with no filename')
+    #     return None
+
+    print(cfg.path)
+    scanpath = 'F:\\code\\music_pump\\music_videos\\'
+    # exclude directories
+    files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
+    for file in files:
+        # this needs to cache
+        if(Video.find_by_filename(file) == None):
+            # TODO: addedBy, dateAdded
+            # vid = Video(0, file, file)
+            # vid.save()
+            print('added', file)
+    return jsonify(result=files)
 
 @app.route('/_get_length')
 def get_length():
@@ -151,7 +177,6 @@ def rate_video():
     conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
-
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
 
     return list_videos()
@@ -273,13 +298,18 @@ def convert_video():
     video = Video.load(videoId)
     lastDot = video.filename.rindex('.')
     newfilename = video.filename[:lastDot] + '.mp4'
+    # video.filename = "half•alive - still feel. [VIDEO] - KOOhPfMbuIQ.webm"
+    print('ffmpeg -y -i "downloads/'+video.filename+'" -vf scale=1920:-1 "downloads/' + newfilename + '"' )
+    
     if(video.filename == newfilename):
         print('don\'t want to overwrite')
-        return
-    print('gonna convert up ' + video.filename + ' to ' + newfilename)
+        return jsonify(result=False)
+
+    print('gonna convert up "' + video.filename + '" to "' + newfilename +'"')
     # TODO: make os independent
     os.chdir('F://code//music_pump//')
-    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf scale=1920:-1', 'downloads/' + newfilename])
+    
+    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf', 'scale=1920:-1', 'downloads/' + newfilename])
 
     print('finished')
 

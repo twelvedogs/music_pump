@@ -1,5 +1,6 @@
 __pycache__/
 downloads/
+music_videos/
 *.mp4
 *.7z
 ffmpeg.exe

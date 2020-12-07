@@ -82,7 +82,7 @@ class Player:
         if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
             print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
             #fuck it, who cares.  idle events get called twice for some reason
-            if(self.last_idle_event >= time.time() - 0.25):
+            if(self.last_idle_event >= time.time() - 1):
                 print('very fast second idle event error, rejecting')
                 return
             self.last_idle_event = time.time()    
@@ -202,7 +202,6 @@ class Player:
         # play filename right now to chromecast
         self.play_on_chromecast(video.filename, video.title)
 
-
     def get_queue(self):
         conn = sqlite3.connect(cfg.db_path)
         with conn:
@@ -310,7 +309,6 @@ class Player:
             print('Failed to get a video')
             return False
 
-
     def get_video(self):
         ''' 
         get current video but look it up in db to get extra info and pass it all back
@@ -331,7 +329,6 @@ class Player:
             logging.info('Exception getting current video info:\n%s', str(err))
             self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
             return None
-
 
     def update_length(self):
         pass
