@@ -268,11 +268,14 @@ def convert_video():
     # TODO: block this from being accessed more than once
     # TODO: check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match
     # TODO: check original resolution, don't change if under 1080p
-    # TODO: check not overwriting file
+    # TODO: check not overwriting lowercase filename
     videoId = request.args.get('videoId', '', type=int)
     video = Video.load(videoId)
     lastDot = video.filename.rindex('.')
     newfilename = video.filename[:lastDot] + '.mp4'
+    if(video.filename == newfilename):
+        print('don\'t want to overwrite')
+        return
     print('gonna convert up ' + video.filename + ' to ' + newfilename)
     # TODO: make os independent
     os.chdir('F://code//music_pump//')
