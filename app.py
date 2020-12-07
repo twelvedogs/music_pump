@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 import sqlite3
 import os
+import subprocess
 import random
 import time
 import youtube_dl
@@ -263,6 +264,24 @@ def clean_video_list():
 
     return jsonify(result=True)
 
+@app.route('/_convert_video')
+def convert_video():
+    videoId = request.args.get('videoId', '', type=int)
+    video = Video.load(videoId)
+    lastDot = video.filename.rindex('.')
+    newfilename = video.filename[:lastDot] + '.mp4'
+    print('gonna convert up ' + video.filename + ' to ' + newfilename)
+    # TODO: make os independent
+    os.chdir('F://code//music_pump//')
+    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, 'downloads/' + newfilename])
+
+    print('finished')
+
+    video.filename=newfilename
+    video.save()
+
+    return jsonify(result=True)
+
 @app.route('/_download_video')
 def download_video():
     '''
@@ -344,7 +363,7 @@ def download_video():
 
 # allow downloads from directory, should be just served by the webserver
 @app.route('/downloads/<path:path>')
-def send_js(path):
+def send_video(path):
     return send_from_directory('downloads', path)
 
 @app.route('/')

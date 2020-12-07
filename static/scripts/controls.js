@@ -269,6 +269,20 @@ function get_file_info(videoId){
     });
 }
 
+function convert_video(videoId){
+  $.getJSON($SCRIPT_ROOT + '/_convert_video', {
+    videoId: videoId
+}, function(data) {
+  
+  if(data.result.length===0){
+    $.growl.error({ message: 'something shat itself' });
+  }else{
+    // $.growl.notice({ message: 'file info ' + data.result });
+    console.log(data.result);
+  }
+});
+}
+
 function download_video(){
   $.growl.notice({ message: 'Downloading ' + $('#youtubeUrl').val() });
   $.getJSON($SCRIPT_ROOT + '/_download_video', {
@@ -389,6 +403,7 @@ function draw_video_list(){
       '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
       '<button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
       '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
+      '<button class="btn" onclick="convert_video(\''+val.videoId+'\')">convert video</button>' +
       '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
       '</li>'
   });
