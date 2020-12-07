@@ -51,17 +51,6 @@ $(function() {
     // $('input[name=a]').focus();
 });
 
-function play_pause(){
-    $.getJSON($SCRIPT_ROOT + '/_play_pause', {
-      }, function(data) {
-          if(data.result.length===0){
-            console.log('no data')
-          }else{
-            console.log(data.result);
-          }
-      });
-}
-
 function isEmptyOrSpaces(str){
   return str === null || str.match(/^\s*$/) !== null;
 }
@@ -72,6 +61,9 @@ var playTimer = null;
 var hardUpdateTime = 5000; // 5 seconds
 var softUpdateTime = 500; // .5 seconds
 var lastCalled = (new Date).getTime();
+
+var videos = {};
+var queue = {};
 
 var length = 0;
 var played = 0;
@@ -111,22 +103,72 @@ function set_play_state(p){
   }
 }
 
-// this is misnamed i think probably should be "auto-add queue item"
-// no longer used, hopefull handled via listeners on server
-function tick(){
-  $.getJSON($SCRIPT_ROOT + '/_tick', {
+
+// player controls
+function stop(){
+  $.getJSON($SCRIPT_ROOT + '/_stop', {
     }, function(data) {
-      console.log(data);
+        if(data.result.length===0){
+          console.log('no data')
+        }else{
+          console.log(data.result);
+        }
+    });
+}
+function next(){
+  $.getJSON($SCRIPT_ROOT + '/_next', {
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data')
+        }else{
+          console.log(data.result);
+        }
+    });
+}
+function prev(){
+  $.getJSON($SCRIPT_ROOT + '/_prev', {
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data')
+        }else{
+          console.log(data.result);
+        }
+    });
+}
+function play(){
+  $.getJSON($SCRIPT_ROOT + '/_play', {
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data')
+        }else{
+          console.log(data.result);
+        }
     });
 }
 
+function play_pause(){
+  $.getJSON($SCRIPT_ROOT + '/_play_pause', {
+    }, function(data) {
+        if(data.result.length===0){
+          console.log('no data')
+        }else{
+          console.log(data.result);
+        }
+    });
+}
+
+
+
+
+/**
+ * get current playing video & play time
+ */
 function get_video(){
     $.getJSON($SCRIPT_ROOT + '/_get_video', {
       }, function(data) {
         if(data === null || data.result === null){
           $('#currentlyPlaying').val('Nothing playing');
           update_time();
-          // tick();
         }else{
           $('#currentlyPlaying').val(data.result.filename);
 
@@ -143,6 +185,9 @@ function get_video(){
       });
 }
 
+/**
+ * remove duplicates
+ */
 function clean_video_list(){
   $.getJSON($SCRIPT_ROOT + '/_clean_video_list', {
 
@@ -152,7 +197,6 @@ function clean_video_list(){
           $.growl.error({ message: 'Nothing back'});
         }else{
           $.growl.notice({ message: 'We did it bro, we totally pulled it off' });
-          // probably could return this from _play_video, dunno if that make sense
           get_list();
           console.log(data.result);
         }
@@ -258,28 +302,18 @@ function get_queue(){
 
 /**
  * set rating for a song then refresh list
- * and populate the controls that manage it,
- * currently just #videoUL
- * todo: duplicated code with get_list()
  */
 function rate(videoId, rating){
   $.getJSON($SCRIPT_ROOT + '/_rate', {
       'videoId': videoId,
       'rating': rating
   }, function(data) {
-      var videoULLi = '';
       if(data.result.length===0) {
         console.log('no files')
         $('#files').html('no files');
       } else {
-        // create the option html and just stuff it in the control
-        // #files is going away
-        $.each(data.result, function(i, val) {
-          videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
-            '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
-            '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
-        });
-        $('#videoUL').html(videoULLi);
+        videos = data.result;
+        draw_video_list();
       }
   });
 }
@@ -287,35 +321,29 @@ function rate(videoId, rating){
 /**
  * get the video list and populate the controls that manage it,
  * currently just #videoUL
- * todo: split into webservice and list generator function
  */
 function get_list(){
     $.getJSON($SCRIPT_ROOT + '/_list_videos', {
         // test: 'test',
     }, function(data) {
-        var videoULLi = '';
         if(data.result.length===0) {
           console.log('no files')
           $('#files').html('no files');
         } else {
-          // create the option html and just stuff it in the control
-          // #files is going away
-          $.each(data.result, function(i, val) {
-            videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
-              '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button><button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
-              '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
-          });
-          $('#videoUL').html(videoULLi);
+          videos = data.result;
+          draw_video_list();
         }
     });
 }
 
-/**
- * call the auto queue functionality, should be automatic in future
- */
-function auto_queue(){
-    $.getJSON($SCRIPT_ROOT + '/_auto_queue', {}, 
-      function(data) {
-        console.log(data);
-        });
+function draw_video_list(){
+  var videoULLi = '';
+  $.each(videos, function(i, val) {
+    videoULLi += '<li class="align-items-center"><a>' + val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span></a>'+
+      '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
+      '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
+      '<button class="btn" onclick="delete_video(\''+val.videoId+'\')">delete</button>' +
+      '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button></li>'
+  });
+  $('#videoUL').html(videoULLi);
 }

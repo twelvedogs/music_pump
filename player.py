@@ -3,7 +3,6 @@ import random
 import pychromecast
 from flask import jsonify # probably shouldn't need this here
 import sqlite3
-#import telnetlib
 import time
 from video import Video
 import cfg
@@ -14,7 +13,7 @@ chromecast = 'Office'
 def get_chromecast():
     # dunno what this is but the first element is the list of ccasts
     chromecasts = pychromecast.get_chromecasts()[0]
-    print('chromecasts', chromecasts)
+
     for cc in chromecasts:
         device = cc.device
         print('device', device)
@@ -29,36 +28,72 @@ def get_chromecast():
 
 
 class Player:
-    # maybe init with URL?
+    # probably init with player so each can be managed separately
     def __init__(self):
         self.downloading = False
         self.crnt_video = None
         self.time_started = -1
-        self.elapsed = 0 # seconds since song start
-        self.crntOrder = -1
+        self.crnt_order = -1
         self.pause = 0
         self.lastUpdated = -1
-
+        self.last_status = ''
+        # self.mc = get_chromecast(chromecast_guid)
         self.mc = get_chromecast()
+        # self.mc.set_volume
+        # this should only be called once lol
+        self.mc.register_status_listener(self)
+        
 
     @staticmethod
     def get_play_targets():
+        # this blocks by default but can trigger a callback for each found chromecast
         chromecasts = pychromecast.get_chromecasts()[0]
         devices = []
 
         for cc in chromecasts:
             device = cc.device
             devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs
-            # [{ device.friendly_name, device.model_name, device.uuid }]
-            print(device.friendly_name, device.model_name)
+            # print(device.friendly_name, device.model_name)
 
         return devices
 
-    def play_on_chromecast(self, file):
-        print('calling play on ' + file)
-        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, content_type = 'video/mp4')
+
+    def new_media_status(self, status):
+        '''
+        chromecast calls back on status change, sometimes called multiple so needs rate limiter for actions
+        player_state=='UNKNOWN' probably means the chromecast is disconnected, it will have lost the listener anyway
+        '''
+        
+        if(str(status.player_state)=='UNKNOWN'):
+            print('did we lose the chromecast?')
+            print(self.mc.status)
+            #self.mc.register_status_listener(self)
+
+        # check if idle is a "new" status and ignore if not
+        if(str(status.player_state)=='IDLE' and self.last_status != 'IDLE'):
+            self.advance_queue()
+
+        self.last_status = str(status.player_state)
+
+
+    def play_on_chromecast(self, file, title='', added_by='Unknown'):
+        '''
+        play the file
+        probably change to play_on_target
+        '''
+        if(title==''):
+            title=file
+
+        # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
+        # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video content_type will work
+        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4')
         self.mc.block_until_active()
-        self.mc.play()  
+        self.mc.play()
+
+        
+
+    def status(self):
+        return self.mc.status
 
     def advance_queue(self):
         ''' 
@@ -67,37 +102,25 @@ class Player:
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            # print('trying to play queue order > ', self.crntOrder)
-            logging.info('Trying to play queue order > %s', self.crntOrder)
-            rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crntOrder,))
+            logging.info('Trying to play queue order > %s', self.crnt_order)
+            print('Trying to play queue order > %d' % (self.crnt_order, ))
+            rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crnt_order,))
             next_in_queue = rows.fetchone()
 
             # if no videos in queue add one and restart
             if(next_in_queue == None):
-                # print('queue empty, adding and re-trying')
+                print('queue empty, adding and re-trying')
                 logging.info('Internal queue empty, calling auto_queue() and waiting for re-try from wherever called this')
                 rows.close()
                 self.auto_queue()
 
             else:
+                print('Playing next file "%s" in queue number %d' % (next_in_queue[2], next_in_queue[3]))
                 logging.info('Playing next file in queue: %s', next_in_queue[2])
-                self.crntOrder = next_in_queue[3]
+                
+                self.crnt_order = next_in_queue[3]
                 v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
                 self.play_now(v)
-
-    def tick(self):
-        '''
-        should only check chromecast is still alive
-        TODO: call this from web app
-        '''
-        if(not self.crnt_video): # or self.time_started + self.crnt_video.length > time.time() ): # timer not working yet
-            logging.info('tick: as far as the app knows nothing playing (this can happen before player is queried), calling advance_queue, it\'ll add a video to the queue if req')
-            
-            self.advance_queue()
-        else:
-            # not logging this too noisy
-            print('tick: as far as the app knows currently playing: ', self.crnt_video)
-            self.get_video()
 
     def play_video(self, videoId, addedBy, after = False):
         '''
@@ -106,6 +129,7 @@ class Player:
         '''
         # print('playing video with id', videoId)
         logging.info('something called play_video with id %s, play after this song is set to %s', videoId, after)
+        print('something called play_video with id %s, play after this song is set to %s' % (videoId, after))
         video = Video.load(videoId)
         
         #insert into queue
@@ -113,35 +137,34 @@ class Player:
         with conn:
             c = conn.cursor()
             # make a gap by moving all videos after this one along one
-            c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crntOrder, ))
+            c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crnt_order, ))
             conn.commit()
             # insert new thing
-            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crntOrder + 1 ))
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1 ))
             conn.commit()
 
         if not after:
             # probably should just add to queue and stop current song?
             self.play_now(video)
+        else:
+            self.play_now(video)
 
     # this should be an internal function for the player object that is called after the queue is advanced
     # push file to player, needs to be from the queue, probably needs to be renamed
     def play_now(self, video):
-
-        # rate limiter, can't play a song more than once every 10 sec (for now)
-        if(self.time_started >= time.time() - 10):
+        # rate limiter, can't play a song more than once every 1 sec (for now)
+        if(self.time_started >= time.time() - 1):
+            print('rate limit hit, dropping request')
             return
 
-        # clear queue and add the new video
-        # print('play_now: clearing player playlist and queueing \"' + video.filename + '\"')
-        logging.info('play_now: clearing playlist and adding \"' + video.filename + '\" to queue')
+        # logging.info('play_now: adding \"' + video.filename + '\" to queue')
+        print('play_now: adding \"' + video.filename + '\"')
 
         self.time_started = time.time()
         self.crnt_video = video
         
         # play filename right now to chromecast
-        # long_path = 'file:///' + (cfg.path + video.filename).replace('\\','/')
-        # telnet_command('add '+ long_path + '')
-        self.play_on_chromecast(video.filename)
+        self.play_on_chromecast(video.filename, video.title)
 
 
     def get_queue(self):
@@ -199,14 +222,14 @@ class Player:
         '''
         queues a random video
         '''
-        print('trying to auto queue')
         conn = sqlite3.connect(cfg.db_path)
 
         video_to_add = -1
         with conn:
             c = conn.cursor()
 
-            # here we go!
+            # gives each video a range, bigger if it's a higher rated song
+            # we then pick a random number and play the video with the range that the number falls within
             rando = '''
             with video_with_sum as (select * from video CROSS JOIN (select sum(rating) as rating_sum from video)),
             sampling_probability as (select videoId, title, rating,rating*1.0/rating_sum as prob from video_with_sum),
@@ -229,16 +252,16 @@ class Player:
             FROM cumulative_bounds where lower_cum_bound<:rand and upper_cum_bound>:rand;'''
             rand = random.random()
 
-             
             for row in c.execute(rando, { 'rand': rand } ):
-                print(row)
                 video_to_add = row[0]
 
-        # insert random video after current one
-        if(video_to_add>0):
-            self.play_video(video_to_add, 'Video Bot', True)
+        # add new random video
+        if(video_to_add > 0):
+            print('randomly playing videoId ', video_to_add)
+            self.play_video(video_to_add, 'Video Bot', False)
             return True
         else:
+            print('Failed to get a video')
             return False
 
 
@@ -266,33 +289,33 @@ class Player:
 
     def update_length(self):
         pass
-        # this needs a lot of work
-
-        # seconds elapsed in current video
-        # todo: calc from internal timer
-        # elapsed = telnet_command('get_time').strip()
-        # if(elapsed != ''):
-        #     currentVideo.played = int(elapsed)
-        #     self.elapsed = int(elapsed)
-        # else:
-        #     currentVideo.played = 0
-        #     self.elapsed = 0
-        # 
-        # currentVideo.length = int(telnet_command('get_length').strip())
-        # currentVideo.playing = int(telnet_command('is_playing').strip())
-
-        # only update if we made it
-        # self.crnt_video = currentVideo
 
 
     def get_length(self):
         return self.crnt_video.length
 
+    def stop(self):
+        self.mc.stop()
+
+        return {'Result': True}
+
+    def next(self):
+        self.advance_queue()
+
+        return {'Result': True}
+
+    def prev(self):
+        self.mc.stop()
+
+        return {'Result': True}
 
     def play_pause(self):
-        # telnet_command('pause')
+        if(self.pause):
+            self.mc.play()
+        else:
+            self.mc.pause()
 
         # toggle internal pause state
         self.pause = 1 - self.pause
 
-        return jsonify(result=True)
+        return {'Result': True}

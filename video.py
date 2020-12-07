@@ -35,7 +35,7 @@ class Video:
         # exclude directories
         files = [f for f in os.listdir(cfg.path) if os.path.isfile(os.path.join(cfg.path, f))]
         for file in files:
-            print(file)
+            # print(file)
             if(Video.find_by_filename(file) == None):
                 # TODO: addedBy, dateAdded
                 vid = Video(0, file, file)
@@ -87,7 +87,7 @@ class Video:
             c = conn.cursor()
             c.execute('delete from video where videoId =:videoId;', (self.videoId, ))
             conn.commit()
-            c.execute('delete from queue where videoId=:videoId;', (self.videoId, ))
+            c.execute('delete from queue where videoId =:videoId;', (self.videoId, ))
             conn.commit()
 
     def save(self):

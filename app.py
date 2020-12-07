@@ -12,15 +12,11 @@
         rate videos into database
         play videos via player, locally or remotely
 
+    todo: re-create database if non-existant so can add to .gitignore
     todo: save often can't find filename and breaks
-    todo: next is broken
-    todo: video time is broken
-    todo: auto-set stupid volume level when launching player with render target
     todo: clear queue on launch (unless re-launched recently?)
-    todo: don't auto-queue if video is already in queue table (ie: has already played)
     todo: multi directory support
     todo: refresh single video info div in the file list
-    todo: re-create database if non-existant so can add to .gitignore
     todo: scan directory and auto-add missing to db
     todo: !!!!! convert .webm or weird shit to mp4 !!!
     
@@ -53,14 +49,6 @@ def get_length():
     '''
     return jsonify(result=player.crnt_video.length)
 
-@app.route('/_play_pause')
-def play_pause():
-    '''
-    fire play/pause button press at player
-    '''
-    player.pause()
-
-    return jsonify(result=True)
 
 @app.route('/_delete_video')
 def delete_video():
@@ -70,29 +58,57 @@ def delete_video():
     # TODO: update list
     return jsonify(result=True)
 
-@app.route('/_tick')
-def tick():
-    player.tick()
+#controls
 
-    return jsonify(result=True) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+@app.route('/_next')
+def next():
+    '''
+    next button
+    '''
+    return jsonify(player.next())
+
+@app.route('/_prev')
+def prev():
+    '''
+    prev button
+    '''
+    return jsonify(player.prev())
+
+@app.route('/_play_pause')
+def play_pause():
+    '''
+    play/pause button
+    '''
+    return jsonify(player.play_pause())
+
+@app.route('/_stop')
+def stop():
+    '''
+    stop button
+    '''
+    return jsonify(player.stop())
 
 @app.route('/_play_video')
 def play_video():
-    after = request.args.get('after')=='True' # after is false if param "after" != "true"
+    '''
+    play video on current player by videoId
+    '''
+    after = request.args.get('after')=='True' # after is false if param "after" != "True"
 
     player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
 
-    return jsonify(result=True) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+    return jsonify(result=True) # {'title': player.crntVideo.title})
 
 
 @app.route('/_get_play_targets')
 def get_play_targets():
-    players = Player.get_play_targets()
+
+    targets = Player.get_play_targets()
 
     # after = request.args.get('after')=='True' # after is false if param "after" != "true"
     # player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
 
-    return jsonify(result=players) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+    return jsonify(result=targets) # {'title': player.crntVideo.title}) # probably won't be updated for a second
 
 
 
@@ -169,7 +185,7 @@ def list_videos():
     return big video list to client
     # TODO: video.get_all() or something
     '''
-
+    # Video.get_all()
     conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
@@ -197,11 +213,10 @@ def ydlhook(s):
     '''
     try:
         if(s['status']!='finished'):
-            # TODO: push completion into websocket
             print('ydlhook: ' + s['_percent_str'])
     except:
         print('ydlhook failed: ', s)
-        # TODO: push completion into websocket
+
 
 @app.route('/_clean_video_list')
 def clean_video_list():
@@ -250,7 +265,7 @@ def download_video():
     if(isPlaylist>-1):
         url=url[0:isPlaylist]
 
-    # todo: need to specify download format of h264 for rpi
+    # todo: need to specify download format of h264 for rpi & chromecast
     # todo: need to catch malformed url
     # todo: check if folder exists probably
     ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.path + '%(title)s - %(id)s.%(ext)s', 
@@ -326,7 +341,7 @@ def index():
     return render_template('index.html')
 
 def setup_logging():
-    logging.basicConfig(filename='app.log', level=logging.DEBUG)
+    logging.basicConfig(filename='app.log', level=logging.INFO)
     # logger = logging.get_logger()
     logging.info('Started')
     # shut up the werkzeug logger 
