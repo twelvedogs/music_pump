@@ -36,11 +36,12 @@ class Player:
         self.crnt_order = -1
         self.pause = 0
         self.lastUpdated = -1
-        self.last_status = ''
+        # self.last_status = ''
         # self.mc = get_chromecast(chromecast_guid)
         self.mc = get_chromecast()
         # self.mc.set_volume
         # this should only be called once lol
+        self.last_idle_event = -1
         self.mc.register_status_listener(self)
         
 
@@ -63,17 +64,26 @@ class Player:
         chromecast calls back on status change, sometimes called multiple so needs rate limiter for actions
         player_state=='UNKNOWN' probably means the chromecast is disconnected, it will have lost the listener anyway
         '''
-        
+        # print(str(status.player_state), self.mc.status.idle_reason)
+        # if(str(status.player_state)=='IDLE'):
+        #     print(status)
+
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
             print(self.mc.status)
-            #self.mc.register_status_listener(self)
 
         # check if idle is a "new" status and ignore if not
-        if(str(status.player_state)=='IDLE' and self.last_status != 'IDLE'):
+        if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
+            print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
+            #fuck it, who cares.  idle events get called twice for some reason
+            if(self.last_idle_event >= time.time() - 0.25):
+                print('very fast second idle event error, rejecting')
+                return
+            self.last_idle_event = time.time()    
+
             self.advance_queue()
 
-        self.last_status = str(status.player_state)
+        # self.last_status = str(status.player_state)
 
 
     def play_on_chromecast(self, file, title='', added_by='Unknown'):
@@ -86,9 +96,9 @@ class Player:
 
         # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
         # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video content_type will work
-        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4')
-        self.mc.block_until_active()
-        self.mc.play()
+        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4', autoplay=True)
+        # self.mc.block_until_active()
+        # self.mc.play()
 
         
 
@@ -107,58 +117,78 @@ class Player:
             rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crnt_order,))
             next_in_queue = rows.fetchone()
 
-            # if no videos in queue add one and restart
+            # if no videos in queue add one
             if(next_in_queue == None):
-                print('queue empty, adding and re-trying')
-                logging.info('Internal queue empty, calling auto_queue() and waiting for re-try from wherever called this')
-                rows.close()
+                print('At end of existing queue, calling auto_queue()')
+                logging.info('At end of existing queue, calling auto_queue()')
+                
                 self.auto_queue()
 
-            else:
-                print('Playing next file "%s" in queue number %d' % (next_in_queue[2], next_in_queue[3]))
-                logging.info('Playing next file in queue: %s', next_in_queue[2])
-                
-                self.crnt_order = next_in_queue[3]
-                v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
-                self.play_now(v)
+                # get newly queued video
+                rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crnt_order,))
+                next_in_queue = rows.fetchone()
 
-    def play_video(self, videoId, addedBy, after = False):
+            rows.close()
+
+            print('Playing next file "%s" in queue as number %d' % (next_in_queue[2], next_in_queue[3]))
+            logging.info('Playing next file in queue: %s', next_in_queue[2])
+            
+            self.crnt_order = next_in_queue[3]
+            v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
+            self.play_now(v)
+
+    def insert_video_in_queue(self, videoId, addedBy):
+        conn = sqlite3.connect(cfg.db_path)
+        with conn:
+            c = conn.cursor()
+            c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crnt_order, ))
+            conn.commit()
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1 ))
+            conn.commit()
+
+    def queue_video(self, videoId, addedBy):
         '''
-        insert video into queue by id, addedBy just for info
-        TODO: rename to queue
+        add video to end of queue
         '''
         # print('playing video with id', videoId)
-        logging.info('something called play_video with id %s, play after this song is set to %s', videoId, after)
-        print('something called play_video with id %s, play after this song is set to %s' % (videoId, after))
-        video = Video.load(videoId)
+        logging.info('something called queue_video with id %s', videoId)
+        # print('something called queue_video with id %s' % (videoId))
+        # video = Video.load(videoId)
         
         #insert into queue
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            # make a gap by moving all videos after this one along one
-            c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crnt_order, ))
-            conn.commit()
-            # insert new thing
-            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1 ))
-            conn.commit()
+            queueSql = '''
+            SELECT 
+                MAX([order])  
+            FROM 
+                queue
+            '''
+            for row in c.execute(queueSql):
+                max = row[0]
 
-        if not after:
-            # probably should just add to queue and stop current song?
-            self.play_now(video)
-        else:
-            self.play_now(video)
+            # if no rows max is undefined
+            if(max==None):
+                max=-1
+
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, max + 1 ))
+
+        # if not after:
+        #     # probably should just add to queue and stop current song?
+        #     self.play_now(video)
+        # else:
+        #     self.play_now(video)
 
     # this should be an internal function for the player object that is called after the queue is advanced
     # push file to player, needs to be from the queue, probably needs to be renamed
     def play_now(self, video):
-        # rate limiter, can't play a song more than once every 1 sec (for now)
-        if(self.time_started >= time.time() - 1):
+        # rate limiter, can't play a song more than once every x sec, move to interface block rather than internal
+        if(self.time_started >= time.time() - 0.25):
             print('rate limit hit, dropping request')
             return
 
         # logging.info('play_now: adding \"' + video.filename + '\" to queue')
-        print('play_now: adding \"' + video.filename + '\"')
 
         self.time_started = time.time()
         self.crnt_video = video
@@ -216,7 +246,17 @@ class Player:
             c.execute('delete from queue')
             conn.commit()
 
+        self.crnt_order=-1
+
         return True
+
+    def process_queue(self):
+        print(self.downloading)
+        print(self.crnt_video)
+        print(self.time_started)
+        print(self.crnt_order)
+        print(self.pause)
+        print(self.lastUpdated)
 
     def auto_queue(self):
         '''
@@ -257,8 +297,8 @@ class Player:
 
         # add new random video
         if(video_to_add > 0):
-            print('randomly playing videoId ', video_to_add)
-            self.play_video(video_to_add, 'Video Bot', False)
+            print('auto_queue calling queue_video with videoId ', video_to_add)
+            self.queue_video(video_to_add, 'Video Bot')
             return True
         else:
             print('Failed to get a video')

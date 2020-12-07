@@ -93,9 +93,9 @@ def play_video():
     '''
     play video on current player by videoId
     '''
-    after = request.args.get('after')=='True' # after is false if param "after" != "True"
+    # after = request.args.get('after')=='True' # after is false if param "after" != "True"
 
-    player.play_video(request.args.get('videoId'), request.args.get('addedBy'), after=after)
+    player.queue_video(request.args.get('videoId'), request.args.get('addedBy'))
 
     return jsonify(result=True) # {'title': player.crntVideo.title})
 
@@ -142,15 +142,14 @@ def rate_video():
 
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
 
-    return jsonify(result=True)
+    return jsonify(result=list_videos())
 
-@app.route('/_auto_queue')
-def auto_queue():
+@app.route('/_process_queue')
+def process_queue():
     ''' 
-    currently: check if queue is down to one or less videos, then queue one
-    TODO: this doesn't need to be called from interface
+    play the queue
     '''
-    return jsonify(result=player.auto_queue())
+    return jsonify(result=player.process_queue())
 
 @app.route('/_add_to_queue')
 def add_to_queue():
@@ -160,7 +159,7 @@ def add_to_queue():
     videoId = request.args.get('videoId')
     addedBy = request.args.get('addedBy')
 
-    return jsonify(result=player.play_video(videoId, addedBy))
+    return jsonify(result=player.queue_video(videoId, addedBy))
 
 @app.route('/_clear_queue')
 def clear_queue():

@@ -282,6 +282,19 @@ function clear_queue(){
 }
 
 /** get the current queue */
+function process_queue(){
+  $.getJSON($SCRIPT_ROOT + '/_process_queue', {
+  }, function(data) {
+      if(data.result.length===0) {
+        console.log('nothing queued')
+        
+      } else {
+        
+      }
+  });
+}
+
+/** get the current queue */
 function get_queue(){
     $.getJSON($SCRIPT_ROOT + '/_get_queue', {
     }, function(data) {
