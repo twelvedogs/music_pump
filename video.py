@@ -2,7 +2,7 @@ import os
 import logging
 import sqlite3
 import cfg
-
+from datetime import datetime
 
 # this not being serialisable sucks balls, there's probably a library for that
 class Video:
@@ -16,6 +16,8 @@ class Video:
         self.filename = filename
         self.rating = rating
         self.lastPlayed = lastPlayed
+        if(dateAdded == None):
+            dateAdded = datetime.now()
         self.dateAdded = dateAdded
         self.mature = mature
         self.videoType = videoType
@@ -38,7 +40,7 @@ class Video:
             # print(file)
             if(Video.find_by_filename(file) == None):
                 # TODO: addedBy, dateAdded
-                vid = Video(0, file, file)
+                vid = Video(0, file, file, addedBy="Folder Scan")
                 vid.save()
                 print('added', file)
 

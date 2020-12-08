@@ -368,6 +368,25 @@ function scan_folder(){
   });
 }
 
+function searchUL(searchBoxId, ulId) {
+  var input, filter, ul, li, a, i, txtValue;
+  // search box
+  input = document.getElementById(searchBoxId);
+  filter = input.value.toUpperCase();
+  ul = document.getElementById(ulId);
+  li = ul.getElementsByTagName("li");
+  // not sure how well this will work with 1000 items
+  for (i = 0; i < li.length; i++) {
+      a = li[i].getElementsByTagName("a")[0];
+      txtValue = a.textContent || a.innerText;
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+          li[i].style.display = "";
+      } else {
+          li[i].style.display = "none";
+      }
+  }
+}
+
 /**
  * set rating for a song then refresh list
  */
@@ -382,6 +401,8 @@ function rate(videoId, rating){
       } else {
         videos = data.result;
         draw_video_list();
+        // todo: this doesn't work
+        searchUL('videoSearch', 'videoUL');
       }
   });
 }

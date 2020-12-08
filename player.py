@@ -23,9 +23,6 @@ def get_chromecast():
             cc.wait()
             cc.set_volume(0.01)
             return cc.media_controller
-            # mc.play_media("http://192.168.1.10:5000/downloads/Au_Ra - X Games - bWGH2s2ZX0Y.mp4", content_type = "video/mp4")
-            # mc.block_until_active()
-            # mc.play()    
 
 
 class Player:
@@ -42,7 +39,7 @@ class Player:
         self.mc = get_chromecast()
         # self.mc.set_volume
         # this should only be called once lol
-        self.last_idle_event = -1
+        self.last_event_time = -1
         self.mc.register_status_listener(self)
         
 
@@ -63,11 +60,20 @@ class Player:
         '''
         chromecast calls back on status change, sometimes called multiple so needs rate limiter for actions
         player_state=='UNKNOWN' probably means the chromecast is disconnected, it will have lost the listener anyway
-        TODO: is mc.status the same as the status passed in?
+        is mc.status the same as the status passed in?
         '''
         # print(str(status.player_state), self.mc.status.idle_reason)
         # if(str(status.player_state)=='IDLE'):
         #     print(status)
+
+        # we seem to get a second idle event very soon after the first once a track is finished
+        # also one directly after a new track is played
+        # there's probably a better way of handling this
+        # TODO: don't reject here, just stop auto-move/queue if too many requests
+        if(self.last_event_time >= time.time() - 1):
+            print('very fast second event error, rejecting')
+            return
+        self.last_event_time = time.time()  
 
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
@@ -75,22 +81,13 @@ class Player:
 
         if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason == 'ERROR'):
             print('IDLE status due to SHITTING ITSELF')
-            self.mc.status
+            # self.mc.status
             print(self.mc.status)
 
         # check if idle is a "new" status and ignore if not
         if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
             print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
-            #fuck it, who cares.  idle events get called twice for some reason
-            if(self.last_idle_event >= time.time() - 1):
-                print('very fast second idle event error, rejecting')
-                return
-            self.last_idle_event = time.time()    
-
             self.advance_queue()
-
-        # self.last_status = str(status.player_state)
-
 
     def play_on_chromecast(self, file, title='', added_by='Unknown'):
         '''
@@ -244,7 +241,6 @@ class Player:
         '''
         clears out the queue table
         '''
-
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
@@ -329,13 +325,6 @@ class Player:
             logging.info('Exception getting current video info:\n%s', str(err))
             self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
             return None
-
-    def update_length(self):
-        pass
-
-
-    def get_length(self):
-        return self.crnt_video.length
 
     def stop(self):
         self.mc.stop()

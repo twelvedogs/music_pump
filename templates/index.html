@@ -66,39 +66,7 @@
         </div>
       </div> 
   </div>
-
-  <ol id="myUL">
-      <li><a href="#">click file in list shows options for file, like delete, re-rate, add ect</a></li>
-      <li><a href="#">block/queue downloads while currently downloading</a></li>
-      <li><a href="#">show thumbnail</a></li>
-      <li><a href="#">add extra filtering options like user and mature</a></li>
-      <li><a href="#">list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list</a></li>
-      <li><a href="#">add function to scan directory/s for missing files</a></li>
-      <li><a href="#">use web sockets to maintain status</a></li>
-      <li><a href="#">check if videojs is worth the effort</a></li>
-      <li><a href="#">check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match</a></li>
-  </ol>
   
-  <script>
-    function searchUL(searchBoxId, ulId) {
-      var input, filter, ul, li, a, i, txtValue;
-      // search box
-      input = document.getElementById(searchBoxId);
-      filter = input.value.toUpperCase();
-      ul = document.getElementById(ulId);
-      li = ul.getElementsByTagName("li");
-      // not sure how well this will work with 1000 items
-      for (i = 0; i < li.length; i++) {
-          a = li[i].getElementsByTagName("a")[0];
-          txtValue = a.textContent || a.innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-              li[i].style.display = "";
-          } else {
-              li[i].style.display = "none";
-          }
-      }
-  }
-  </script>
 <script src="https://code.jquery.com/jquery-3.2.1.min.js" 
    crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" 

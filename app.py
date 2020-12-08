@@ -14,18 +14,21 @@
     TODO: re-create database if non-existant so can add to .gitignore
     TODO: youtube-dl functionality often can't find filename and breaks
     TODO: block youtube-dl while downloading
-
     TODO: clear queue on launch (unless re-launched recently?)
     TODO: multi directory support
     TODO: refresh single video info div in the file list
-    TODO: scan directory and auto-add missing to db
-    TODO: update player
+    TODO: improve directory scan to have smarter file name matching
+    TODO: update player area to show progress etc
     TODO: multiple files for each video
     TODO: popup file info
     TODO: add filtering on mature/user
     TODO: add videojs
     TODO: WEBSOCKETS!
     TODO: db backups
+    TODO: list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list
+    TODO: remove black bars from videos in convert function
+    TODO: store youtube data blob
+    TODO: youtube search rather than just input file
 '''
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -56,16 +59,25 @@ def scan_folder():
     #     return None
 
     print(cfg.path)
-    scanpath = 'F:\\code\\music_pump\\music_videos\\'
+    # scanpath = 'F:\\code\\music_pump\\downloads\\'
+    scanpath = cfg.path
     # exclude directories
     files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
     for file in files:
-        # this needs to cache
-        if(Video.find_by_filename(file) == None):
-            # TODO: addedBy, dateAdded
-            # vid = Video(0, file, file)
-            # vid.save()
-            print('added', file)
+        lastDot = file.rindex('.')
+        extension = file[lastDot:]
+        if(extension.lower() == '.mp4' or extension.lower() == '.mkv'):
+            # TODO: should probably use an in-memory file list
+            if(Video.find_by_filename(file) == None):
+                vid = Video(0, file, file, addedBy='Folder Scan')
+                vid.save()
+                print('added', file[:lastDot], file[lastDot:])
+
+        else:
+            print('not adding '+file+' wrong file type')
+
+        time.sleep(0.01) # i'm abusing the shit out of the db so ease off a bit
+
     return jsonify(result=files)
 
 @app.route('/_get_length')
