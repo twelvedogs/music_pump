@@ -7,7 +7,7 @@
   <div class="row">
     <div class="col-sm">
         <input type="text" class="form-control form-control-lg" 
-          id="username" placeholder="Need to auto-generate username here" >
+          id="username" onchange="save_username()" placeholder="Need to auto-generate username here" >
     </div> 
     <div class="col-sm">
         <div class="input-group">
@@ -52,7 +52,7 @@
       <div class="col-sm">
           <button class="btn btn-primary" onclick="get_queue()" >Refresh Queue</button>
           <button class="btn btn-primary" onclick="clear_queue()" >Clear Queue</button>
-          <button class="btn btn-primary" onclick="scan_folder()" >Scan Folder</button>
+      <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >Scan Folder</button>
           <div id="queue"></div>
       </div>
   </div>
@@ -74,9 +74,9 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" 
   integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 
-  <script src="/static/javascript/jquery.growl.js" type="text/javascript"></script>
-  <link href="/static/stylesheets/jquery.growl.css" rel="stylesheet" type="text/css" />
-
+<script src="/static/javascript/jquery.growl.js" type="text/javascript"></script>
+<link href="/static/stylesheets/jquery.growl.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.jsdelivr.net/npm/js-cookie@rc/dist/js.cookie.min.js"></script>
 <script src="/static/scripts/controls.js"></script>
 
 

@@ -51,6 +51,7 @@ class Player:
 
         for cc in chromecasts:
             device = cc.device
+            # "friendly_name", "model_name", "manufacturer", "uuid", "cast_type"
             devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs
 
         return devices
@@ -117,7 +118,8 @@ class Player:
             c = conn.cursor()
             logging.info('Trying to play queue order > %s', self.crnt_order)
             print('Trying to play queue order > %d' % (self.crnt_order, ))
-            rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crnt_order,))
+            next_in_queue_sql = 'select video.videoId, video.title, video.filename, queue.[order], queue.addedBy from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1'
+            rows = c.execute(next_in_queue_sql,(self.crnt_order,))
             next_in_queue = rows.fetchone()
 
             # if no videos in queue add one
@@ -128,7 +130,7 @@ class Player:
                 self.auto_queue()
 
                 # get newly queued video
-                rows = c.execute('select video.videoId, video.title, video.filename, queue.[order] from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1',(self.crnt_order,))
+                rows = c.execute(next_in_queue_sql,(self.crnt_order,))
                 next_in_queue = rows.fetchone()
 
             rows.close()
@@ -138,7 +140,9 @@ class Player:
             
             self.crnt_order = next_in_queue[3]
             v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
-            self.play_now(v)
+
+            self.play_now(v, next_in_queue[4])
+
 
     def insert_video_in_queue(self, videoId, addedBy):
         conn = sqlite3.connect(cfg.db_path)
@@ -185,7 +189,7 @@ class Player:
 
     # this should be an internal function for the player object that is called after the queue is advanced
     # push file to player, needs to be from the queue, probably needs to be renamed
-    def play_now(self, video):
+    def play_now(self, video, added_by="Not set"):
         # rate limiter, can't play a song more than once every x sec, move to interface block rather than internal
         if(self.time_started >= time.time() - 0.25):
             print('rate limit hit, dropping request')
@@ -197,7 +201,7 @@ class Player:
         self.crnt_video = video
         
         # play filename right now to chromecast
-        self.play_on_chromecast(video.filename, video.title)
+        self.play_on_chromecast(video.filename, video.title, added_by=added_by)
 
     def get_queue(self):
         conn = sqlite3.connect(cfg.db_path)

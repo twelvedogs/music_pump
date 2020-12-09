@@ -29,6 +29,7 @@
     TODO: remove black bars from videos in convert function
     TODO: store youtube data blob
     TODO: youtube search rather than just input file
+    TODO: remove all content that may cause some kind of strike
 '''
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -59,7 +60,7 @@ def scan_folder():
     #     return None
 
     print(cfg.path)
-    # scanpath = 'F:\\code\\music_pump\\downloads\\'
+
     scanpath = cfg.path
     # exclude directories
     files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
@@ -121,7 +122,9 @@ def next():
     '''
     next button
     '''
-    return jsonify(player.next())
+    player.next()
+
+    return jsonify(queue=player.get_queue())
 
 @app.route('/_prev')
 def prev():
@@ -251,7 +254,7 @@ def list_videos():
 
             videos.append(video)
 
-        return jsonify(result=videos)
+        return jsonify(videos=videos)
 
 
 def ydlhook(s):
@@ -310,7 +313,7 @@ def convert_video():
     video = Video.load(videoId)
     lastDot = video.filename.rindex('.')
     newfilename = video.filename[:lastDot] + '.mp4'
-    # video.filename = "half•alive - still feel. [VIDEO] - KOOhPfMbuIQ.webm"
+
     print('ffmpeg -y -i "downloads/'+video.filename+'" -vf scale=1920:-1 "downloads/' + newfilename + '"' )
     
     if(video.filename == newfilename):
@@ -320,9 +323,10 @@ def convert_video():
     print('gonna convert up "' + video.filename + '" to "' + newfilename +'"')
     # TODO: make os independent
     os.chdir('F://code//music_pump//')
-    
-    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf', 'scale=1920:-1', 'downloads/' + newfilename])
 
+    # this actually blocks
+    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf', 'scale=1920:-1', 'downloads/' + newfilename])
+    
     print('finished')
 
     video.filename=newfilename

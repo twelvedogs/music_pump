@@ -12,6 +12,11 @@ function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function save_username(){
+  Cookies.set('username', $('#username').val(), { expires: 365, SameSite: 'Lax' });
+  console.log(Cookies.get('username'))
+}
+
 // var myPlayer = null;
 $(function() {
   
@@ -19,6 +24,9 @@ $(function() {
   get_list();
   get_queue();
 
+  if(Cookies.get('username')!==''){
+    $('#username').val(Cookies.get('username'));
+  }
   // this actually does get called
   if($('#username').val()===''){
     username ='';
@@ -55,15 +63,71 @@ function isEmptyOrSpaces(str){
   return str === null || str.match(/^\s*$/) !== null;
 }
 
-// todo: should be just stuffed in an object or something
+function update_queue(queue){
+  file_list = '';
+  $.each(queue, function(i, val) {
+    file_list += '<a onclick="set_queue_position(\''+val.order+'\')">'+val.order+' - '+val.title+'</a><br>';
+  });
+  $('#queue').html(file_list);
+}
+
+// don't really know what to call this, Storage_Object_With_Listeners is pretty clunky
+class Data{
+  constructor() {
+    // i don't think any of these are currently used
+    this.playing = 0;
+    this.playTimer = null;
+    this.hardUpdateTime = 5000; // 5 seconds
+    this.softUpdateTime = 500; // .5 seconds
+    this.lastCalled = (new Date).getTime();
+
+    this.videos = {};
+    this.queue = {};
+    
+    this.length = 0;
+    this.played = 0;
+
+    this.listeners = [];
+
+  }
+
+  add_listener(prop, fn){
+    console.log('adding listener to ' + prop, fn);
+    // this.listeners += [{property: prop, listener: fn}];
+    this.listeners.push({property: prop, listener: fn});
+    console.log(JSON.stringify(this.listeners));
+  }
+
+  call_listeners(prop){
+    console.log('call_listeners', this.listeners, this[prop] );
+    // i really don't know how 'this' works in js
+    let parent_this = this;
+    $.each(this.listeners, function(i, listener){
+      if(listener.property === prop){
+        console.log('calling listener', listener.listener, parent_this[prop])
+        listener.listener(parent_this[prop]);
+      }
+    });
+  }
+
+  // how do people handle changing a single property on the property?
+  set(prop, val){
+    this[prop]=val;
+    // call after set so listeners get new value
+    this.call_listeners(prop);
+  }
+}
+
+var data = new Data();
+data.add_listener('queue', update_queue);
+data.add_listener('videos', draw_video_list);
+
+// TODO: cull unused, probably most of them since most functionality is broken rn
 var playing = 0;
 var playTimer = null;
 var hardUpdateTime = 5000; // 5 seconds
 var softUpdateTime = 500; // .5 seconds
 var lastCalled = (new Date).getTime();
-
-var videos = {};
-var queue = {};
 
 var length = 0;
 var played = 0;
@@ -107,52 +171,53 @@ function set_play_state(p){
 // player controls
 function stop(){
   $.getJSON($SCRIPT_ROOT + '/_stop', {
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('stop no response')
         }else{
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
 function next(){
   $.getJSON($SCRIPT_ROOT + '/_next', {
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
-        }else{
-          console.log(data.result);
-        }
+    }, function(response) {
+      // check wanted properties here, like if queue is undefined it's an error
+      if(typeof response === 'undefined' || response.length===0){
+        console.log('next no response', response);
+      }else{
+        data.set('queue', response.queue);
+      }
     });
 }
 function prev(){
   $.getJSON($SCRIPT_ROOT + '/_prev', {
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('no response')
         }else{
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
 function play(){
   $.getJSON($SCRIPT_ROOT + '/_play', {
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('no response')
         }else{
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
 
 function play_pause(){
   $.getJSON($SCRIPT_ROOT + '/_play_pause', {
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data')
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('no response')
         }else{
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
@@ -165,21 +230,21 @@ function play_pause(){
  */
 function get_video(){
     $.getJSON($SCRIPT_ROOT + '/_get_video', {
-      }, function(data) {
-        if(data === null || data.result === null){
+      }, function(response) {
+        if(response === null || response.result === null){
           $('#currentlyPlaying').val('Nothing playing');
           update_time();
         }else{
-          $('#currentlyPlaying').val(data.result.filename);
+          $('#currentlyPlaying').val(response.result.filename);
 
-          length = data.result.length;
-          played = data.result.played
-          $('#video_progress').prop('aria-valuemax', data.result.length);
-          $('#video_progress').prop('aria-valuenow', data.result.played);
+          length = response.result.length;
+          played = response.result.played
+          $('#video_progress').prop('aria-valuemax', response.result.length);
+          $('#video_progress').prop('aria-valuenow', response.result.played);
           
           set_progress();
 
-          // set_play_state(data.result.playing);
+          // set_play_state(response.result.playing);
 
         }
       });
@@ -191,14 +256,14 @@ function get_video(){
 function clean_video_list(){
   $.getJSON($SCRIPT_ROOT + '/_clean_video_list', {
 
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data');
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('no response');
           $.growl.error({ message: 'Nothing back'});
         }else{
           $.growl.notice({ message: 'We did it bro, we totally pulled it off' });
           get_list();
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
@@ -207,31 +272,31 @@ function delete_video(id){
   $.getJSON($SCRIPT_ROOT + '/_delete_video', {
       videoId: id,
       addedBy: $('#username').val(),
-    }, function(data) {
-        if(data.result.length===0){
-          console.log('no data');
+    }, function(response) {
+        if(response.result.length===0){
+          console.log('no response');
           $.growl.error({ message: 'Couldn\'t delete'});
         }else{
-          $.growl.notice({ message: 'Deleting ' + data.result.title });
+          $.growl.notice({ message: 'Deleting ' + response.result.title });
           // probably could return this from _delete_video, dunno if that make sense
           get_list();
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
 
 function get_play_targets(){
-  $.getJSON($SCRIPT_ROOT + '/_get_play_targets', {}, function(data) {
-        if(data.result.length===0){
-          console.log('no data');
+  $.getJSON($SCRIPT_ROOT + '/_get_play_targets', {}, function(response) {
+        if(response.result.length===0){
+          console.log('no response');
           $.growl.error({ message: 'no play targets'});
         }else{
           $.growl.notice({ message: 'found play targets' });
           $('#play_targets').empty()
-          $.each(data.result, function(i, val){
+          $.each(response.result, function(i, val){
             $('#play_targets').append(new Option(val.name, val.uuid));
           });
-          console.log(data.result);
+          console.log(response.result);
         }
     });
 }
@@ -240,15 +305,15 @@ function play_video(id){
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,
         addedBy: $('#username').val(),
-      }, function(data) {
-          if(data.result.length===0){
-            console.log('no data');
+      }, function(response) {
+          if(response.result.length===0){
+            console.log('no response');
             $.growl.error({ message: 'Couldn\'t add'});
           }else{
-            $.growl.notice({ message: 'Adding ' + data.result.title });
+            $.growl.notice({ message: 'Adding ' + response.result.title });
             // probably could return queue array from play_video to skip extra call
             get_queue();
-            console.log(data.result);
+            console.log(response.result);
           }
       });
 }
@@ -257,14 +322,14 @@ function get_file_info(videoId){
   
   $.getJSON($SCRIPT_ROOT + '/_get_file_info', {
         videoId: videoId
-    }, function(data) {
+    }, function(response) {
       
-      if(data.result.length===0){
+      if(response.result.length===0){
         $.growl.error({ message: 'something shat itself' });
       }else{
-        // $.growl.notice({ message: 'file info ' + data.result });
-        $('.video_info_'+videoId).html(data.result.codec_name);
-        console.log(data.result);
+        // $.growl.notice({ message: 'file info ' + response.result });
+        $('.video_info_'+videoId).html(response.result.codec_name);
+        console.log(response.result);
       }
     });
 }
@@ -272,13 +337,13 @@ function get_file_info(videoId){
 function convert_video(videoId){
   $.getJSON($SCRIPT_ROOT + '/_convert_video', {
     videoId: videoId
-}, function(data) {
+}, function(response) {
   
-  if(data.result.length===0){
+  if(response.result.length===0){
     $.growl.error({ message: 'something shat itself' });
   }else{
-    // $.growl.notice({ message: 'file info ' + data.result });
-    console.log(data.result);
+    // $.growl.notice({ message: 'file info ' + response.result });
+    console.log(response.result);
   }
 });
 }
@@ -288,21 +353,21 @@ function download_video(){
   $.getJSON($SCRIPT_ROOT + '/_download_video', {
         url: $('#youtubeUrl').val(),
         addedBy: $('#username').val(),
-    }, function(data) {
+    }, function(response) {
       
-      if(data.result.length===0){
+      if(response.length===0){
         $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
       }else{
-        $.growl.notice({ message: 'Succeeded downloading ' + data.result.title });
-        console.log(data.result);
+        $.growl.notice({ message: 'Succeeded downloading ' + response.result.title });
+
       }
     });
 }
 
 function clear_queue(){
   $.getJSON($SCRIPT_ROOT + '/_clear_queue', {
-  }, function(data) {
-      if(data.result) {
+  }, function(response) {
+      if(response.result) {
         $.growl.notice({ message: "Cleared Queue" });
         $('#queue').html('');
       } else {
@@ -314,8 +379,8 @@ function clear_queue(){
 /** get the current queue */
 function process_queue(){
   $.getJSON($SCRIPT_ROOT + '/_process_queue', {
-  }, function(data) {
-      if(data.result.length===0) {
+  }, function(response) {
+      if(response.result.length===0) {
         console.log('nothing queued')
         
       } else {
@@ -327,9 +392,9 @@ function process_queue(){
 function set_queue_position(order){
   $.getJSON($SCRIPT_ROOT + '/_set_queue_position', {
     order: order
-  }, function(data) {
+  }, function(response) {
 
-      if(data.result.length===0) {
+      if(response.result.length===0) {
         console.log('blarp')
       } else {
         
@@ -340,28 +405,22 @@ function set_queue_position(order){
 /** get the current queue */
 function get_queue(){
     $.getJSON($SCRIPT_ROOT + '/_get_queue', {
-    }, function(data) {
-        var fileList = '';
-
-        if(data.result.length===0) {
+    }, function(response) {
+        if(response.result.length===0) {
           console.log('nothing queued')
-          $('#files').html('no queue');
+          data.set('queue', []);
         } else {
-
-          $.each(data.result, function(i, val) {
-              fileList += '<a onclick="set_queue_position(\''+val.order+'\')">'+val.order+' - '+val.title+'</a><br>';
-          });
-          $('#queue').html(fileList);
+          data.set('queue', response.result);
         }
     });
 }
 
 function scan_folder(){
   $.getJSON($SCRIPT_ROOT + '/_scan_folder', {
-  }, function(data) {
+  }, function(response) {
 
-      if(data.result.length===0) {
-        console.log('nothing nothing')
+      if(response.result.length===0) {
+        console.log('nothing nothing');
       } else {
 
       }
@@ -392,18 +451,10 @@ function searchUL(searchBoxId, ulId) {
  */
 function rate(videoId, rating){
   $.getJSON($SCRIPT_ROOT + '/_rate', {
-      'videoId': videoId,
-      'rating': rating
-  }, function(data) {
-      if(data.result.length===0) {
-        console.log('no files')
-        $('#files').html('no files');
-      } else {
-        videos = data.result;
-        draw_video_list();
-        // todo: this doesn't work
-        searchUL('videoSearch', 'videoUL');
-      }
+    'videoId': videoId,
+    'rating': rating
+  }, function(response) {
+    data.set('videos', response.videos);
   });
 }
 
@@ -414,18 +465,13 @@ function rate(videoId, rating){
 function get_list(){
     $.getJSON($SCRIPT_ROOT + '/_list_videos', {
         // test: 'test',
-    }, function(data) {
-        if(data.result.length===0) {
-          console.log('no files')
-          $('#files').html('no files');
-        } else {
-          videos = data.result;
-          draw_video_list();
-        }
+    }, function(response) {
+      data.set('videos', response.videos);
     });
 }
 
-function draw_video_list(){
+function draw_video_list(videos){
+  console.log('draw+video_list', videos);
   var videoULLi = '';
   $.each(videos, function(i, val) {
     videoULLi += '<li class="align-items-center"><a>' + 
