@@ -79,7 +79,7 @@ class Video:
             return None
 
 
-    def delete(self):
+    def delete(self, delete_file=False):
         '''
         deletes from db only
         TODO: move file to another folder and mark as deleted in db
@@ -91,6 +91,8 @@ class Video:
             conn.commit()
             c.execute('delete from queue where videoId =:videoId;', (self.videoId, ))
             conn.commit()
+        if(delete_file):
+            os.remove(cfg.download_path + self.filename)
 
     def save(self):
         ''' 

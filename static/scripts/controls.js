@@ -91,20 +91,16 @@ class Data{
 
   }
 
+  /** add listener to a property, if it's set with set() the listener function is called */
   add_listener(prop, fn){
-    console.log('adding listener to ' + prop, fn);
-    // this.listeners += [{property: prop, listener: fn}];
     this.listeners.push({property: prop, listener: fn});
-    console.log(JSON.stringify(this.listeners));
   }
 
   call_listeners(prop){
-    console.log('call_listeners', this.listeners, this[prop] );
     // i really don't know how 'this' works in js
     let parent_this = this;
     $.each(this.listeners, function(i, listener){
       if(listener.property === prop){
-        console.log('calling listener', listener.listener, parent_this[prop])
         listener.listener(parent_this[prop]);
       }
     });
@@ -125,29 +121,11 @@ data.add_listener('videos', draw_video_list);
 // TODO: cull unused, probably most of them since most functionality is broken rn
 var playing = 0;
 var playTimer = null;
-var hardUpdateTime = 5000; // 5 seconds
 var softUpdateTime = 500; // .5 seconds
 var lastCalled = (new Date).getTime();
 
 var length = 0;
 var played = 0;
-
-/** manage times since progress checked and updated */
-function update_time(){
-  var crntTime = (new Date).getTime();
-
-  // don't do a full update too often, just update the progress bar
-  if(crntTime> (lastCalled + hardUpdateTime)){
-    // get_video();
-    lastCalled = crntTime;
-  }else{
-    played += softUpdateTime / 1000;
-  }
-
-  set_progress();
-  
-  playTimer = setTimeout(update_time, softUpdateTime);
-}
 
 function set_progress(){
   $('#video_progress').css('width','' + played/length * 100 + '%');
@@ -269,19 +247,27 @@ function clean_video_list(){
 }
 
 function delete_video(id){
+  // not sure if this will convert js true to python True so stringing
+  file_also = 'False';
+  if(confirm('file also?')){
+    file_also = 'True';
+  }
   $.getJSON($SCRIPT_ROOT + '/_delete_video', {
       videoId: id,
-      addedBy: $('#username').val(),
+      delete_file: file_also
     }, function(response) {
-        if(response.result.length===0){
-          console.log('no response');
-          $.growl.error({ message: 'Couldn\'t delete'});
-        }else{
-          $.growl.notice({ message: 'Deleting ' + response.result.title });
-          // probably could return this from _delete_video, dunno if that make sense
-          get_list();
-          console.log(response.result);
-        }
+        // TODO: check for data
+        data.set('videos', response.videos);
+        // if(response.result.length===0){
+        //   console.log('no response');
+        //   $.growl.error({ message: 'Couldn\'t delete'});
+        // }else{
+        //   $.growl.notice({ message: 'Deleting ' + response.result.title });
+        //   // return data.videos from _delete_video
+        //   // data.set('videos', response.videos);
+        //   get_list();
+        //   console.log(response.result);
+        // }
     });
 }
 
@@ -354,11 +340,12 @@ function download_video(){
         url: $('#youtubeUrl').val(),
         addedBy: $('#username').val(),
     }, function(response) {
-      
+      console.log('finished downloading')
       if(response.length===0){
         $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
       }else{
         $.growl.notice({ message: 'Succeeded downloading ' + response.result.title });
+        data.set('videos', response.videos);
 
       }
     });
@@ -406,11 +393,10 @@ function set_queue_position(order){
 function get_queue(){
     $.getJSON($SCRIPT_ROOT + '/_get_queue', {
     }, function(response) {
-        if(response.result.length===0) {
-          console.log('nothing queued')
+        if(response.queue.length===0) {
           data.set('queue', []);
         } else {
-          data.set('queue', response.result);
+          data.set('queue', response.queue);
         }
     });
 }
@@ -471,20 +457,26 @@ function get_list(){
 }
 
 function draw_video_list(videos){
-  console.log('draw+video_list', videos);
   var videoULLi = '';
-  $.each(videos, function(i, val) {
-    videoULLi += '<li class="align-items-center"><a>' + 
-      val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
-      'Codec: <span class="video_info_' + val.videoId + '"></span>' + 
-      '</a>' +
-      '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
-      '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
-      '<button class="btn" onclick="if(confirm(\'delete '+val.title+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
-      '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
-      '<button class="btn" onclick="if(confirm(\'convert '+val.title+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
-      '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
-      '</li>'
-  });
+
+  if(videos.length===0)
+    videoULLi='';
+  else{
+    $.each(videos, function(i, val) {
+      videoULLi += '<li class="align-items-center"><a>' + 
+        val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
+        'Codec: <span class="video_info_' + val.videoId + '"></span>' + 
+        '</a>' +
+        '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
+        '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
+        '<button class="btn" onclick="if(confirm(\'delete '+val.title+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
+        '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
+        '<button class="btn" onclick="if(confirm(\'convert '+val.title+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
+        '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
+        '</li>'
+    });
+  }
   $('#videoUL').html(videoULLi);
+
+  searchUL('videoSearch', 'videoUL') 
 }

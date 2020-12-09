@@ -109,11 +109,11 @@ def get_file_info():
 
 @app.route('/_delete_video')
 def delete_video():
+    delete_file = request.args.get('delete_file', bool)
     video = Video.load(request.args.get('videoId'))
-    video.delete()
-    # TODO: remove from queue
-    # TODO: update list
-    return jsonify(result=True)
+    video.delete(delete_file=delete_file)
+    # can't double json, don't call this like this move the functionality into video.get_all() or something
+    return list_videos()
 
 #controls
 
@@ -185,7 +185,6 @@ def get_video():
 
 @app.route('/_rate')
 def rate_video():
-    # TODO: video.rate(id, rating)
     videoId = request.args.get('videoId')
     rating = request.args.get('rating')
 
@@ -210,8 +209,9 @@ def add_to_queue():
     '''
     videoId = request.args.get('videoId')
     addedBy = request.args.get('addedBy')
+    player.queue_video(videoId, addedBy)
 
-    return jsonify(result=player.queue_video(videoId, addedBy))
+    return jsonify(queue=player.get_queue())
 
 @app.route('/_clear_queue')
 def clear_queue():
@@ -227,7 +227,7 @@ def get_queue():
     return current queue to client
     '''
 
-    return jsonify(result=player.get_queue())
+    return jsonify(queue=player.get_queue())
 
 
 @app.route('/_list_videos')
@@ -411,7 +411,7 @@ def download_video():
     vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
     
-    return str(vid) #jsonify(result=vid)
+    return list_videos()
 
 # allow downloads from directory, should be just served by the webserver
 @app.route('/downloads/<path:path>')
