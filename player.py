@@ -100,9 +100,15 @@ class Player:
 
         # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
         # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video content_type will work
-        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4', autoplay=True)
-        # self.mc.block_until_active()
-        # self.mc.play()
+        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, \
+            title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4', \
+            subtitles='http://192.168.1.10:5000/_subtitles', subtitle_id=1, subtitles_mime="text/vtt") #, autoplay=True)
+        
+        self.mc.enable_subtitle(1)
+        self.mc.block_until_active()
+        
+        
+        self.mc.play()
 
         
 
@@ -160,7 +166,7 @@ class Player:
         # print('playing video with id', videoId)
         logging.info('something called queue_video with id %s', videoId)
         # print('something called queue_video with id %s' % (videoId))
-        # video = Video.load(videoId)
+        video = Video.load(videoId)
         
         #insert into queue
         conn = sqlite3.connect(cfg.db_path)
@@ -180,7 +186,7 @@ class Player:
                 max=-1
 
             c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, max + 1 ))
-
+        return video
         # if not after:
         #     # probably should just add to queue and stop current song?
         #     self.play_now(video)
@@ -313,8 +319,8 @@ class Player:
         ''' 
         get current video but look it up in db to get extra info and pass it all back
         need: length, rating, who added
-        todo: theoretically the script should know this before it asks as long as the chromecast
-                isn't allowed to progress through it's own playlist
+        TODO: get video length
+        TODO: get crnt video from chromecast if required, otherwise it's only findable if we've manipulated the chromecast since startup
         '''
 
         try:
@@ -327,23 +333,23 @@ class Player:
         # currently on error unset
         except Exception as err:
             logging.info('Exception getting current video info:\n%s', str(err))
-            self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
+            # self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
             return None
 
     def stop(self):
         self.mc.stop()
 
-        return {'Result': True}
+        return True
 
-    def next(self):
+    def play_next(self):
         self.advance_queue()
 
-        return {'Result': True}
+        return self.get_video()
 
-    def prev(self):
+    def play_prev(self):
         self.mc.stop()
 
-        return {'Result': True}
+        return self.get_video()
 
     def play_pause(self):
         if(self.pause):
@@ -354,4 +360,4 @@ class Player:
         # toggle internal pause state
         self.pause = 1 - self.pause
 
-        return {'Result': True}
+        return True

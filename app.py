@@ -33,6 +33,7 @@
 '''
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
+# from flask_socketio import SocketIO, emit
 from videoprops import get_video_properties
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,7 @@ import subprocess
 import random
 import time
 import youtube_dl
+import json
 
 from video import Video
 from player import Player
@@ -79,7 +81,7 @@ def scan_folder():
 
         time.sleep(0.01) # i'm abusing the shit out of the db so ease off a bit
 
-    return jsonify(result=files)
+    return jsonify(files=files)
 
 @app.route('/_get_length')
 def get_length():
@@ -105,14 +107,16 @@ def set_queue_position():
 @app.route('/_get_file_info')
 def get_file_info():
     video = Video.load(request.args.get('videoId'))
-    return jsonify(result=get_video_properties(cfg.path + video.filename))
+    video.file_properties = get_video_properties(cfg.path + video.filename)
+    video.save()
+    return jsonify(video = dict.copy(video.__dict__))
 
 @app.route('/_delete_video')
 def delete_video():
     delete_file = request.args.get('delete_file', bool)
     video = Video.load(request.args.get('videoId'))
     video.delete(delete_file=delete_file)
-    # can't double json, don't call this like this move the functionality into video.get_all() or something
+    # return jsonify(videos=Video.get_all())
     return list_videos()
 
 #controls
@@ -122,16 +126,16 @@ def next():
     '''
     next button
     '''
-    player.next()
+    # player.play_next()
 
-    return jsonify(queue=player.get_queue())
+    return jsonify(video=player.play_next(), queue=player.get_queue())
 
 @app.route('/_prev')
 def prev():
     '''
     prev button
     '''
-    return jsonify(player.prev())
+    return jsonify(video=player.play_prev(), queue=player.get_queue())
 
 @app.route('/_play_pause')
 def play_pause():
@@ -152,12 +156,24 @@ def play_video():
     '''
     play video on current player by videoId
     '''
-    # after = request.args.get('after')=='True' # after is false if param "after" != "True"
+    added_by = request.args.get('addedBy')
+    video_id = request.args.get('videoId')
+    
+    player.insert_video_in_queue(video_id, added_by)
 
-    player.queue_video(request.args.get('videoId'), request.args.get('addedBy'))
+    return jsonify(video=player.play_next(), queue=player.get_queue()) # {'title': player.crntVideo.title})
 
-    return jsonify(result=True) # {'title': player.crntVideo.title})
+# TODO: rename _queue_video
+@app.route('/_add_to_queue')
+def add_to_queue():
+    '''
+    add a video to the end of queue
+    '''
+    videoId = request.args.get('videoId')
+    addedBy = request.args.get('addedBy')
+    player.queue_video(videoId, addedBy)
 
+    return jsonify(queue=player.get_queue())
 
 @app.route('/_get_play_targets')
 def get_play_targets():
@@ -181,7 +197,15 @@ def get_status():
 
 @app.route('/_get_video')
 def get_video():
-    return jsonify(result=player.get_video())
+    return jsonify(video=player.get_video())
+
+@app.route('/_subtitles')
+def subtitles():
+    return """WEBVTT
+
+00:00.000 --> 00:13.000
+<v Roger Bingham>We are in New York City
+"""
 
 @app.route('/_rate')
 def rate_video():
@@ -194,31 +218,24 @@ def rate_video():
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
 
     return list_videos()
+    # return jsonify(videos=Video.get_all())
 
 @app.route('/_process_queue')
 def process_queue():
     ''' 
     play the queue
+    TODO: this doesn't work, what should it even do?
     '''
     return jsonify(result=player.process_queue())
 
-@app.route('/_add_to_queue')
-def add_to_queue():
-    '''
-    add a video to the end of queue
-    '''
-    videoId = request.args.get('videoId')
-    addedBy = request.args.get('addedBy')
-    player.queue_video(videoId, addedBy)
-
-    return jsonify(queue=player.get_queue())
 
 @app.route('/_clear_queue')
 def clear_queue():
     '''
     clear out the database queue
     '''
-    return jsonify(result=player.clear_queue())
+    player.clear_queue()
+    return jsonify(queue=[])
 
 
 @app.route('/_get_queue')
@@ -244,14 +261,15 @@ def list_videos():
         videos = []
 
         # dunno if this can be simplified
-        for row in c.execute('SELECT videoId, title, filename, rating, addedBy FROM video ORDER BY videoId desc'):
+        for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties FROM video ORDER BY videoId desc'):
             video = {}
             video['videoId'] = row[0]
             video['title'] = row[1]
             video['filename'] = row[2]
             video['rating'] = row[3]
             video['addedBy'] = row[4]
-
+            if(row[5] != None):
+                video['file_properties'] = json.loads(str(row[5])) # what type is this
             videos.append(video)
 
         return jsonify(videos=videos)
@@ -338,7 +356,8 @@ def convert_video():
 def download_video():
     '''
     download video and set default rating in db
-    todo: big cleanup
+    TODO: big cleanup
+    TODO: move out of this file
     '''
     url = request.args.get('url', '', type=str)
     addedBy = request.args.get('addedBy', '', type=str)
@@ -432,6 +451,8 @@ def setup_logging():
 
 if __name__ == '__main__':
     setup_logging()
-    app.debug = False
+    #app.debug = False
     # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=80)
+    #socketio.run(sapp)
+

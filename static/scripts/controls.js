@@ -14,7 +14,6 @@ function getRandomInt(min, max) {
 
 function save_username(){
   Cookies.set('username', $('#username').val(), { expires: 365, SameSite: 'Lax' });
-  console.log(Cookies.get('username'))
 }
 
 // var myPlayer = null;
@@ -27,7 +26,7 @@ $(function() {
   if(Cookies.get('username')!==''){
     $('#username').val(Cookies.get('username'));
   }
-  // this actually does get called
+
   if($('#username').val()===''){
     username ='';
     u1s = ['red','green','purple','orange','salmon','pink','brick','violet','blue','grey','fuchsia','gold'
@@ -74,18 +73,15 @@ function update_queue(queue){
 // don't really know what to call this, Storage_Object_With_Listeners is pretty clunky
 class Data{
   constructor() {
-    // i don't think any of these are currently used
-    this.playing = 0;
-    this.playTimer = null;
-    this.hardUpdateTime = 5000; // 5 seconds
-    this.softUpdateTime = 500; // .5 seconds
-    this.lastCalled = (new Date).getTime();
 
+    this.length = 0;
+    this.time_start = null;
+    this.played = 0; // song progress on server
+
+    // these are definitely used
     this.videos = {};
     this.queue = {};
-    
-    this.length = 0;
-    this.played = 0;
+    this.playing_video = {};
 
     this.listeners = [];
 
@@ -117,32 +113,38 @@ class Data{
 var data = new Data();
 data.add_listener('queue', update_queue);
 data.add_listener('videos', draw_video_list);
+data.add_listener('playing_video', start_playing); // this might be called after video has started?
 
-// TODO: cull unused, probably most of them since most functionality is broken rn
-var playing = 0;
-var playTimer = null;
-var softUpdateTime = 500; // .5 seconds
-var lastCalled = (new Date).getTime();
-
-var length = 0;
-var played = 0;
-
-function set_progress(){
-  $('#video_progress').css('width','' + played/length * 100 + '%');
+function start_playing(){
+  data.set('time_start', get_seconds_since_epoch());
+  console.log(data.video);
+  $('#currentlyPlaying').val(data.playing_video.title);
+  set_progress(0, data.playing_video.length+120); // hack to get some kind of action
 }
 
-/** set up timer to refresh video status */
-function set_play_state(p){
-  playing = p;
-  if(playing && !playTimer){
-    $.growl.notice({ message: "Starting playstate update timer" });
-    playTimer = setTimeout(update_time, softUpdateTime); // 1000 = 1 sec
-  }else if(!playing && playTimer){
-    // need to clear video length thing
+function get_seconds_since_epoch(){
+  return Math.round((new Date()).getTime() / 1000);
+}
 
-    // clearTimeout(playTimer);
-    // $.growl.notice({ message: "Stopping playstate update timer" });
-  }
+function update_playing(){
+  //data.set('time_start', new Date());
+  // played = get_seconds_since_epoch()-start
+  seconds_since_epoch-data.time_start;
+  console.log(data.playing_video);
+  set_progress(seconds_since_epoch - data.time_start, data.playing_video.length);
+}
+
+// TODO: cull unused, probably most of them since most functionality is broken rn
+
+// repeat with the interval of 2 seconds
+let progress_update_timer = setInterval(() => update_playing, 1000);
+
+// after 5 seconds stop
+// setTimeout(() => { clearInterval(timerId); alert('stop'); }, 5000);
+
+function set_progress(played, length){
+  console.log('setting to', played, length);
+  $('#video_progress').css('width','' + played/length * 100 + '%');
 }
 
 
@@ -160,10 +162,10 @@ function stop(){
 function next(){
   $.getJSON($SCRIPT_ROOT + '/_next', {
     }, function(response) {
-      // check wanted properties here, like if queue is undefined it's an error
-      if(typeof response === 'undefined' || response.length===0){
-        console.log('next no response', response);
+      if(response.length===0){
+        console.log('no response')
       }else{
+        data.set('playing_video', response.video);
         data.set('queue', response.queue);
       }
     });
@@ -171,10 +173,12 @@ function next(){
 function prev(){
   $.getJSON($SCRIPT_ROOT + '/_prev', {
     }, function(response) {
-        if(response.result.length===0){
+        if(response.length===0){
           console.log('no response')
         }else{
-          console.log(response.result);
+          data.set('playing_video', response.video);
+          data.set('queue', response.queue);
+          // TODO: set queue position
         }
     });
 }
@@ -209,23 +213,34 @@ function play_pause(){
 function get_video(){
     $.getJSON($SCRIPT_ROOT + '/_get_video', {
       }, function(response) {
-        if(response === null || response.result === null){
+        if(response === null){
+          $.growl.error({ message: 'No Response'});
           $('#currentlyPlaying').val('Nothing playing');
-          update_time();
+          // update_time();
         }else{
-          $('#currentlyPlaying').val(response.result.filename);
+          console.log(response.video);
+          data.set('playing_video', response.video);
 
-          length = response.result.length;
-          played = response.result.played
-          $('#video_progress').prop('aria-valuemax', response.result.length);
-          $('#video_progress').prop('aria-valuenow', response.result.played);
-          
-          set_progress();
+          // $('#currentlyPlaying').val(response.result.filename);
+// 
+          // length = response.result.length;
+          // played = response.result.played
+          // $('#video_progress').prop('aria-valuemax', response.result.length);
+          // $('#video_progress').prop('aria-valuenow', response.result.played);
+          // 
+          // set_progress();
 
           // set_play_state(response.result.playing);
 
         }
       });
+}
+
+/** dunno if i like this function name
+ * 
+ */
+function update_display(video){
+  $('#currentlyPlaying').val(video.title);
 }
 
 /**
@@ -235,13 +250,12 @@ function clean_video_list(){
   $.getJSON($SCRIPT_ROOT + '/_clean_video_list', {
 
     }, function(response) {
-        if(response.result.length===0){
+        if(response.length===0){
           console.log('no response');
-          $.growl.error({ message: 'Nothing back'});
+          $.growl.error({ message: 'No Response'});
         }else{
-          $.growl.notice({ message: 'We did it bro, we totally pulled it off' });
-          get_list();
-          console.log(response.result);
+          $.growl.notice({ message: 'Cleared video list' });
+          data.set('videos', response.videos);
         }
     });
 }
@@ -256,6 +270,7 @@ function delete_video(id){
       videoId: id,
       delete_file: file_also
     }, function(response) {
+        $.growl.notice({ message: 'Deleting ' + response.video.title });
         // TODO: check for data
         data.set('videos', response.videos);
         // if(response.result.length===0){
@@ -292,30 +307,31 @@ function play_video(id){
         videoId: id,
         addedBy: $('#username').val(),
       }, function(response) {
-          if(response.result.length===0){
+          if(response.length===0){
             console.log('no response');
             $.growl.error({ message: 'Couldn\'t add'});
           }else{
-            $.growl.notice({ message: 'Adding ' + response.result.title });
-            // probably could return queue array from play_video to skip extra call
-            get_queue();
+            data.set('queue', response.queue);
+            data.set('playing_video', response.video);
+            $.growl.notice({ message: 'Adding ' + response.video.title });
+
             console.log(response.result);
           }
       });
 }
 
 function get_file_info(videoId){
-  
+  // todo: store file info in db, get width, height file size and black bar status
   $.getJSON($SCRIPT_ROOT + '/_get_file_info', {
         videoId: videoId
     }, function(response) {
       
-      if(response.result.length===0){
+      if(response.length===0){
         $.growl.error({ message: 'something shat itself' });
       }else{
         // $.growl.notice({ message: 'file info ' + response.result });
-        $('.video_info_'+videoId).html(response.result.codec_name);
-        console.log(response.result);
+        $('.video_info_'+videoId).html(JSON.stringify(response.video.file_properties));
+        console.log(response);
       }
     });
 }
@@ -354,9 +370,10 @@ function download_video(){
 function clear_queue(){
   $.getJSON($SCRIPT_ROOT + '/_clear_queue', {
   }, function(response) {
-      if(response.result) {
+      if(response) {
         $.growl.notice({ message: "Cleared Queue" });
-        $('#queue').html('');
+        data.set('queue', []);
+        // $('#queue').html('');
       } else {
         $.growl.error({ message: "Something broke clearing queue" });
       }
@@ -405,8 +422,8 @@ function scan_folder(){
   $.getJSON($SCRIPT_ROOT + '/_scan_folder', {
   }, function(response) {
 
-      if(response.result.length===0) {
-        console.log('nothing nothing');
+      if(response.files.length===0) {
+        console.log('no files');
       } else {
 
       }
@@ -463,9 +480,25 @@ function draw_video_list(videos){
     videoULLi='';
   else{
     $.each(videos, function(i, val) {
+      length = false;
+      try{
+        if(!length){
+          length = val.file_properties.duration;
+        }
+      }
+      catch{}
+
+      try{
+        if(!length){
+          // TODO: convert to seconds
+          length = val.file_properties.tags.DURATION;
+        }
+      }
+      catch{}
+
       videoULLi += '<li class="align-items-center"><a>' + 
-        val.title + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
-        'Codec: <span class="video_info_' + val.videoId + '"></span>' + 
+        val.title + ' ' + length + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
+        'File: <span class="video_info_' + val.videoId + '")">'+JSON.stringify(val.file_properties)+'</span>' + 
         '</a>' +
         '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
         '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+

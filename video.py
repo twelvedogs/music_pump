@@ -3,6 +3,8 @@ import logging
 import sqlite3
 import cfg
 from datetime import datetime
+# from flask import jsonify
+import json
 
 # this not being serialisable sucks balls, there's probably a library for that
 class Video:
@@ -10,7 +12,7 @@ class Video:
     video class, represents a video you can play
     '''
     def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01', 
-                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url=''):
+                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url='', file_properties = None):
         self.videoId = videoId
         self.title = title
         self.filename = filename
@@ -24,6 +26,7 @@ class Video:
         self.addedBy = addedBy
         self.length = length
         self.url = url
+        self.file_properties = file_properties
 
     def __str__(self):
         return '{ \"videoId\": \"' + str(self.videoId) + '\", \"title\": \"' + self.title + '\", \"filename\": \"' + self.filename + '\",' + '\"length\": ' + str(self.length) + '}'
@@ -66,6 +69,7 @@ class Video:
     def load(videoId):
         '''
         get database record for video by id
+        TODO: named columns
         '''
         conn = sqlite3.connect(cfg.db_path)
         with conn:
@@ -83,6 +87,7 @@ class Video:
         '''
         deletes from db only
         TODO: move file to another folder and mark as deleted in db
+        TODO: manage if currently playing video, update queue on player
         '''
         conn = sqlite3.connect(cfg.db_path)
         with conn:
@@ -98,13 +103,16 @@ class Video:
         ''' 
         update video database record or create if videoId < 1
         '''
+        
+        file_properties = json.dumps(self.file_properties)
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
+
             # could probably have some kind of simple object returned by a function on Video
             if(self.videoId>0):
-                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy where videoId=:videoId', 
-                    (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy, self.videoId))
+                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy, file_properties=:file_properties where videoId=:videoId', 
+                    { 'title': self.title, 'filename': self.filename, 'rating': self.rating, 'lastPlayed': self.lastPlayed, 'dateAdded': self.dateAdded, 'mature': self.mature, 'videoType': self.videoType, 'addedBy': self.addedBy, 'videoId': self.videoId, 'file_properties': file_properties })
             else:
                 c.execute('insert into video (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
                     (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))
