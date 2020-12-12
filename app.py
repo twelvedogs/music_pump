@@ -57,12 +57,6 @@ player = Player()
 
 @app.route('/_scan_folder')
 def scan_folder():
-    # if(path=='' or path==None):
-    #     logging.error('scan_folder called with no filename')
-    #     return None
-
-    print(cfg.path)
-
     scanpath = cfg.path
     # exclude directories
     files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
@@ -120,7 +114,7 @@ def delete_video():
     return list_videos()
 
 #controls
-
+# these can probably be collapsed into something like player_command('next')
 @app.route('/_next')
 def next():
     '''
@@ -253,26 +247,7 @@ def list_videos():
     return big video list to client
     # TODO: video.get_all() or something
     '''
-    # Video.get_all()
-    conn = sqlite3.connect(cfg.db_path)
-    with conn:
-        c = conn.cursor()
-
-        videos = []
-
-        # dunno if this can be simplified
-        for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties FROM video ORDER BY videoId desc'):
-            video = {}
-            video['videoId'] = row[0]
-            video['title'] = row[1]
-            video['filename'] = row[2]
-            video['rating'] = row[3]
-            video['addedBy'] = row[4]
-            if(row[5] != None):
-                video['file_properties'] = json.loads(str(row[5])) # what type is this
-            videos.append(video)
-
-        return jsonify(videos=videos)
+    return jsonify(videos= Video.get_all())
 
 
 def ydlhook(s):
@@ -429,8 +404,8 @@ def download_video():
     title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
     vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
-    
-    return list_videos()
+    # list_videos()
+    return jsonify(videos = Video.get_all(), video = str(vid))
 
 # allow downloads from directory, should be just served by the webserver
 @app.route('/downloads/<path:path>')

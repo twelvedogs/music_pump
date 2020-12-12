@@ -360,7 +360,7 @@ function download_video(){
       if(response.length===0){
         $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
       }else{
-        $.growl.notice({ message: 'Succeeded downloading ' + response.result.title });
+        $.growl.notice({ message: 'Succeeded downloading ' + response.video.title });
         data.set('videos', response.videos);
 
       }
@@ -483,6 +483,7 @@ function draw_video_list(videos){
       length = false;
       try{
         if(!length){
+          
           length = val.file_properties.duration;
         }
       }
@@ -491,7 +492,9 @@ function draw_video_list(videos){
       try{
         if(!length){
           // TODO: convert to seconds
-          length = val.file_properties.tags.DURATION;
+          arr =  val.file_properties.tags.DURATION.split(':')
+          length = parseInt(arr[0]) * 60 * 60 + parseInt(arr[1]) * 60 + parseFloat(arr[2])
+          // length = val.file_properties.tags.DURATION;
         }
       }
       catch{}

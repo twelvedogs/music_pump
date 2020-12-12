@@ -66,6 +66,29 @@ class Video:
             return None
 
     @staticmethod
+    def get_all():
+        # Video.get_all()
+        conn = sqlite3.connect(cfg.db_path)
+        with conn:
+            c = conn.cursor()
+
+            videos = []
+
+            # dunno if this can be simplified
+            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties FROM video ORDER BY videoId desc'):
+                video = {}
+                video['videoId'] = row[0]
+                video['title'] = row[1]
+                video['filename'] = row[2]
+                video['rating'] = row[3]
+                video['addedBy'] = row[4]
+                if(row[5] != None):
+                    video['file_properties'] = json.loads(row[5])
+                videos.append(video)
+
+            return videos
+
+    @staticmethod
     def load(videoId):
         '''
         get database record for video by id
