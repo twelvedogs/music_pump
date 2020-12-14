@@ -262,6 +262,7 @@ function clean_video_list(){
 
 function delete_video(id){
   // not sure if this will convert js true to python True so stringing
+  console.log('in here')
   file_also = 'False';
   if(confirm('file also?')){
     file_also = 'True';
@@ -504,10 +505,10 @@ function draw_video_list(videos){
         'File: <span class="video_info_' + val.videoId + '")">'+JSON.stringify(val.file_properties)+'</span>' + 
         '</a>' +
         '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
-        '<button class="btn" onclick="play_video(\''+val.videoId+'\')">queue</button>'+
-        '<button class="btn" onclick="if(confirm(\'delete '+val.title+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
+        '<button class="btn" onclick="queue_video(\''+val.videoId+'\')">queue</button>'+
+        '<button class="btn" onclick="if(confirm(\'delete '+escape(val.title)+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
         '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
-        '<button class="btn" onclick="if(confirm(\'convert '+val.title+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
+        '<button class="btn" onclick="if(confirm(\'convert '+escape(val.title)+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
         '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
         '</li>'
     });

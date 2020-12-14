@@ -205,7 +205,7 @@ class Player:
 
         self.time_started = time.time()
         self.crnt_video = video
-        
+        # TODO: increase playcount
         # play filename right now to chromecast
         self.play_on_chromecast(video.filename, video.title, added_by=added_by)
 

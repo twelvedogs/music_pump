@@ -31,6 +31,9 @@
     TODO: youtube search rather than just input file
     TODO: remove all content that may cause some kind of strike
 '''
+
+
+
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
 # from flask_socketio import SocketIO, emit
@@ -158,8 +161,8 @@ def play_video():
     return jsonify(video=player.play_next(), queue=player.get_queue()) # {'title': player.crntVideo.title})
 
 # TODO: rename _queue_video
-@app.route('/_add_to_queue')
-def add_to_queue():
+@app.route('/_queue_video')
+def queue_video():
     '''
     add a video to the end of queue
     '''
@@ -214,13 +217,20 @@ def rate_video():
     return list_videos()
     # return jsonify(videos=Video.get_all())
 
+def long_running_test():
+    # probably call websocket to make sure it's running
+    print('doing a long running test')
+    time.sleep(15)
+
 @app.route('/_process_queue')
 def process_queue():
     ''' 
     play the queue
     TODO: this doesn't work, what should it even do?
     '''
-    return jsonify(result=player.process_queue())
+    long_running_test()
+
+    return jsonify(True)
 
 
 @app.route('/_clear_queue')
@@ -258,6 +268,8 @@ def ydlhook(s):
     try:
         if(s['status']!='finished'):
             print('ydlhook: ' + s['_percent_str'])
+            # sio.emit('my_response', {'data':  s['_percent_str']})
+            # announce to websocket
     except:
         print('ydlhook failed: ', s)
 
@@ -322,32 +334,27 @@ def convert_video():
     
     print('finished')
 
+    # sio.emit('my_response', {'data': 'finished converting video'})
+
     video.filename=newfilename
     video.save()
 
     return jsonify(result=True)
 
-@app.route('/_download_video')
-def download_video():
-    '''
-    download video and set default rating in db
-    TODO: big cleanup
-    TODO: move out of this file
-    '''
-    url = request.args.get('url', '', type=str)
-    addedBy = request.args.get('addedBy', '', type=str)
-
+def do_download(url, addedBy):
+    
     isPlaylist = url.find('&list=')
     if(isPlaylist>-1):
         url=url[0:isPlaylist]
 
-    # todo: need to specify download format of h264 for rpi & chromecast - probably just convert file as specifying format will get lower quality
-    # todo: need to catch malformed url
-    # todo: check if folder exists probably
+    # TODO: need h264 for rpi & chromecast - probably just convert file as specifying format will get lower quality
+    # TODO: need to catch malformed url
+    # TODO: check if folder exists probably
+    # TODO: this is blocking, stop that
     ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.path + '%(title)s - %(id)s.%(ext)s', 
         'format': 'bestvideo+bestaudio/best', 
         'getfilename': True, 
-        'keep': True, 
+        'keep': True,
         # 'restrictfilenames': True # makes it too hard to guess file name for now
     }) 
 
@@ -405,7 +412,25 @@ def download_video():
     vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
     # list_videos()
-    return jsonify(videos = Video.get_all(), video = str(vid))
+
+    # sio.emit('my_response', {'data': 'finished converting video'})
+
+@app.route('/_download_video')
+def download_video():
+    '''
+    download video and set default rating in db
+    TODO: big cleanup
+    TODO: move out of this file
+    '''
+    url = request.args.get('url', '', type=str)
+    addedBy = request.args.get('addedBy', '', type=str)
+
+    do_download(url, addedBy)
+
+    # sio.start_background_task(do_download, url, addedBy)
+    # eventlet.greenthread.spawn(do_download, url, addedBy)
+
+    return jsonify(videos = Video.get_all())
 
 # allow downloads from directory, should be just served by the webserver
 @app.route('/downloads/<path:path>')
