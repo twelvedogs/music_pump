@@ -104,22 +104,25 @@ class Data{
 
   // how do people handle changing a single property on the property?
   set(prop, val){
+    var old = this[prop]; // TODO: does this copy?
     this[prop]=val;
     // call after set so listeners get new value
-    this.call_listeners(prop);
+    this.call_listeners(prop, old);
   }
 }
 
 var data = new Data();
 data.add_listener('queue', update_queue);
 data.add_listener('videos', draw_video_list);
-data.add_listener('playing_video', start_playing); // this might be called after video has started?
+data.add_listener('playing_video', update_interface); // this might be called after video has started?
 
-function start_playing(){
-  data.set('time_start', get_seconds_since_epoch());
-  console.log(data.video);
+function update_interface(updated, old){
+  if(!old || updated.videoId !== old.videoId){
+    console.log('new video restarting timer', updated, old);
+    // data.set('time_start', get_seconds_since_epoch()); // only to be pulled from server
+  }
   $('#currentlyPlaying').val(data.playing_video.title);
-  set_progress(0, data.playing_video.length+120); // hack to get some kind of action
+  
 }
 
 function get_seconds_since_epoch(){
@@ -127,32 +130,49 @@ function get_seconds_since_epoch(){
 }
 
 function update_playing(){
-  //data.set('time_start', new Date());
-  // played = get_seconds_since_epoch()-start
-  seconds_since_epoch-data.time_start;
-  console.log(data.playing_video);
-  set_progress(seconds_since_epoch - data.time_start, data.playing_video.length);
+  if(data.playing_video!== null){
+    seconds_since_epoch = get_seconds_since_epoch();
+    if(!data.playing_video.length){
+      console.log('video length not set')
+    }
+    set_progress(seconds_since_epoch - data.time_start, data.playing_video.length);
+  }
 }
 
-// TODO: cull unused, probably most of them since most functionality is broken rn
-
-// repeat with the interval of 2 seconds
-let progress_update_timer = setInterval(() => update_playing, 1000);
+// repeat with the interval in ms
+progress_update_timer = setInterval(update_playing, 1000);
 
 // after 5 seconds stop
 // setTimeout(() => { clearInterval(timerId); alert('stop'); }, 5000);
 
 function set_progress(played, length){
-  console.log('setting to', played, length);
+  // console.log('setting to', played, length);
+  $('#video_current_time').text(played);
+  $('#video_length').text(length);
   $('#video_progress').css('width','' + played/length * 100 + '%');
 }
 
+function queue_video(id){
+  $.getJSON($SCRIPT_ROOT + '_queue_video', {
+      videoId: id,
+      addedBy: $('#username').val(),
+    }, function(response) {
+        if(response.length===0){
+          console.log('no response');
+          $.growl.error({ message: 'Couldn\'t add'});
+        }else{
+          data.set('queue', response.queue);
+          // data.set('playing_video', response.video);
+          $.growl.notice({ message: 'Queueing ' + response.video.title });
+        }
+    });
+}
 
 // player controls
 function stop(){
   $.getJSON($SCRIPT_ROOT + '/_stop', {
     }, function(response) {
-        if(response.result.length===0){
+        if(response.length===0){
           console.log('stop no response')
         }else{
           console.log(response.result);
@@ -185,10 +205,10 @@ function prev(){
 function play(){
   $.getJSON($SCRIPT_ROOT + '/_play', {
     }, function(response) {
-        if(response.result.length===0){
+        if(response.length===0){
           console.log('no response')
         }else{
-          console.log(response.result);
+          console.log(response);
         }
     });
 }
@@ -196,10 +216,10 @@ function play(){
 function play_pause(){
   $.getJSON($SCRIPT_ROOT + '/_play_pause', {
     }, function(response) {
-        if(response.result.length===0){
+        if(response.length===0){
           console.log('no response')
         }else{
-          console.log(response.result);
+          console.log(response);
         }
     });
 }
@@ -215,23 +235,15 @@ function get_video(){
       }, function(response) {
         if(response === null){
           $.growl.error({ message: 'No Response'});
-          $('#currentlyPlaying').val('Nothing playing');
+          data.set('playing_video', null);
+          // TODO: move to listener
+          // $('#currentlyPlaying').val('Nothing playing');
           // update_time();
         }else{
-          console.log(response.video);
+          console.log('_get_video', response);
+          
           data.set('playing_video', response.video);
-
-          // $('#currentlyPlaying').val(response.result.filename);
-// 
-          // length = response.result.length;
-          // played = response.result.played
-          // $('#video_progress').prop('aria-valuemax', response.result.length);
-          // $('#video_progress').prop('aria-valuenow', response.result.played);
-          // 
-          // set_progress();
-
-          // set_play_state(response.result.playing);
-
+          data.set('time_start', response.time_started);
         }
       });
 }
@@ -315,8 +327,6 @@ function play_video(id){
             data.set('queue', response.queue);
             data.set('playing_video', response.video);
             $.growl.notice({ message: 'Adding ' + response.video.title });
-
-            console.log(response.result);
           }
       });
 }
@@ -332,7 +342,7 @@ function get_file_info(videoId){
       }else{
         // $.growl.notice({ message: 'file info ' + response.result });
         $('.video_info_'+videoId).html(JSON.stringify(response.video.file_properties));
-        console.log(response);
+        console.log('get file info', response);
       }
     });
 }
@@ -438,11 +448,14 @@ function searchUL(searchBoxId, ulId) {
   filter = input.value.toUpperCase();
   ul = document.getElementById(ulId);
   li = ul.getElementsByTagName("li");
+
+  max_length = 20;
+  shown=0;
   // not sure how well this will work with 1000 items
   for (i = 0; i < li.length; i++) {
       a = li[i].getElementsByTagName("a")[0];
       txtValue = a.textContent || a.innerText;
-      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+      if (txtValue.toUpperCase().indexOf(filter) > -1 && shown++ < max_length) {
           li[i].style.display = "";
       } else {
           li[i].style.display = "none";
@@ -481,28 +494,13 @@ function draw_video_list(videos){
     videoULLi='';
   else{
     $.each(videos, function(i, val) {
-      length = false;
+      var codec= 'Dunno';
       try{
-        if(!length){
-          
-          length = val.file_properties.duration;
-        }
-      }
-      catch{}
-
-      try{
-        if(!length){
-          // TODO: convert to seconds
-          arr =  val.file_properties.tags.DURATION.split(':')
-          length = parseInt(arr[0]) * 60 * 60 + parseInt(arr[1]) * 60 + parseFloat(arr[2])
-          // length = val.file_properties.tags.DURATION;
-        }
-      }
-      catch{}
-
+        codec=val.file_properties.codec_name
+      }catch{}
       videoULLi += '<li class="align-items-center"><a>' + 
-        val.title + ' ' + length + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
-        'File: <span class="video_info_' + val.videoId + '")">'+JSON.stringify(val.file_properties)+'</span>' + 
+        val.title + ' ' + val.length + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
+        'Codec: <span class="video_info_' + val.videoId + '")">'+codec+'</span>' + 
         '</a>' +
         '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
         '<button class="btn" onclick="queue_video(\''+val.videoId+'\')">queue</button>'+

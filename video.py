@@ -5,6 +5,7 @@ import cfg
 from datetime import datetime
 # from flask import jsonify
 import json
+from videoprops import get_video_properties
 
 # this not being serialisable sucks balls, there's probably a library for that
 class Video:
@@ -47,6 +48,32 @@ class Video:
                 vid.save()
                 print('added', file)
 
+    def update_file_properties(self):
+        try:
+            self.file_properties = get_video_properties(cfg.path + self.filename)
+            # do the length
+            length =-1
+            try:
+                length = self.file_properties['duration']
+            except:
+                logging.info('video.file_properties.duration error')
+
+            if(length == -1):
+                try:
+                    arr =  self.file_properties['tags']['DURATION'].split(':')
+                    length = int(arr[0]) * 60 * 60 + int(arr[1]) * 60 + float(arr[2])
+                except:
+                    logging.info('video.file_properties.tags.DURATION error')
+
+            self.length = length
+            print(self)
+            
+            self.save()
+            return True
+        except:
+            print('probably couldn\'t find' + self.filename)
+            return False
+
     @staticmethod
     def find_by_filename(filename):
         if(filename=='' or filename==None):
@@ -75,7 +102,7 @@ class Video:
             videos = []
 
             # dunno if this can be simplified
-            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties FROM video ORDER BY videoId desc'):
+            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties, length FROM video ORDER BY videoId desc'):
                 video = {}
                 video['videoId'] = row[0]
                 video['title'] = row[1]
@@ -84,6 +111,9 @@ class Video:
                 video['addedBy'] = row[4]
                 if(row[5] != None):
                     video['file_properties'] = json.loads(row[5])
+
+                video['length'] = row[6]
+
                 videos.append(video)
 
             return videos
@@ -98,7 +128,9 @@ class Video:
         with conn:
             c = conn.cursor()
             for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
-                video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
+                video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], \
+                    dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8], \
+                    url = row[9], file_properties=row[10], length=row[11])
                 return video
             
             logging.error('Video.load - video id not found: ' + videoId)
@@ -134,8 +166,8 @@ class Video:
 
             # could probably have some kind of simple object returned by a function on Video
             if(self.videoId>0):
-                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy, file_properties=:file_properties where videoId=:videoId', 
-                    { 'title': self.title, 'filename': self.filename, 'rating': self.rating, 'lastPlayed': self.lastPlayed, 'dateAdded': self.dateAdded, 'mature': self.mature, 'videoType': self.videoType, 'addedBy': self.addedBy, 'videoId': self.videoId, 'file_properties': file_properties })
+                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy, file_properties=:file_properties, length=:length where videoId=:videoId', 
+                    { 'title': self.title, 'filename': self.filename, 'rating': self.rating, 'lastPlayed': self.lastPlayed, 'dateAdded': self.dateAdded, 'mature': self.mature, 'videoType': self.videoType, 'addedBy': self.addedBy, 'videoId': self.videoId, 'file_properties': file_properties, 'length': self.length })
             else:
                 c.execute('insert into video (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
                     (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))

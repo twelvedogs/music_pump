@@ -31,13 +31,13 @@
             <div id="video_progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;" ></div>
         </div>
         <div class="btn-group btn-group-justified" role="group" aria-label="Basic example">
-          <div class="form-control">3:99</div>
+          <div class="form-control" id="video_current_time">3:99</div><div class="form-control" id="video_length">3:99</div>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="prev()" >Prev</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >Play/Pause</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >Stop</button>
             <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >Next</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>
-            &nbsp; <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >Long Running async function</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>&nbsp; 
+            <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >Long Running async function</button>
         </div>
 
         <div>

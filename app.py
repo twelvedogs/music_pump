@@ -18,12 +18,10 @@
     TODO: multi directory support
     TODO: refresh single video info div in the file list
     TODO: improve directory scan to have smarter file name matching
-    TODO: update player area to show progress etc
-    TODO: multiple files for each video
+    TODO: multiple files for each video?
     TODO: popup file info
     TODO: add filtering on mature/user
     TODO: add videojs
-    TODO: WEBSOCKETS!
     TODO: db backups
     TODO: list box to the right of the songs list, can drag songs in to create playlist (name box at top, save at bottom), adding playlist just jams all the songs at the end of current playlist, playlists just show up at top of song list
     TODO: remove black bars from videos in convert function
@@ -37,7 +35,7 @@
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
 # from flask_socketio import SocketIO, emit
-from videoprops import get_video_properties
+# from videoprops import get_video_properties
 from datetime import datetime
 from pathlib import Path
 import sqlite3
@@ -103,9 +101,10 @@ def set_queue_position():
 
 @app.route('/_get_file_info')
 def get_file_info():
+    
     video = Video.load(request.args.get('videoId'))
-    video.file_properties = get_video_properties(cfg.path + video.filename)
-    video.save()
+    video.update_file_properties()
+
     return jsonify(video = dict.copy(video.__dict__))
 
 @app.route('/_delete_video')
@@ -151,7 +150,7 @@ def stop():
 @app.route('/_play_video')
 def play_video():
     '''
-    play video on current player by videoId
+    add video with videoId after this and then go to queue next
     '''
     added_by = request.args.get('addedBy')
     video_id = request.args.get('videoId')
@@ -168,9 +167,9 @@ def queue_video():
     '''
     videoId = request.args.get('videoId')
     addedBy = request.args.get('addedBy')
-    player.queue_video(videoId, addedBy)
+    video = player.queue_video(videoId, addedBy)
 
-    return jsonify(queue=player.get_queue())
+    return jsonify(video = video, queue=player.get_queue())
 
 @app.route('/_get_play_targets')
 def get_play_targets():
@@ -194,7 +193,7 @@ def get_status():
 
 @app.route('/_get_video')
 def get_video():
-    return jsonify(video=player.get_video())
+    return jsonify(time_started= player.time_started, video=player.get_video())
 
 @app.route('/_subtitles')
 def subtitles():
@@ -209,13 +208,13 @@ def rate_video():
     videoId = request.args.get('videoId')
     rating = request.args.get('rating')
 
+    # Video.set_rating(videoId, rating)
     conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
         c.execute('update video set rating=? where videoId=?', (rating, videoId))
 
-    return list_videos()
-    # return jsonify(videos=Video.get_all())
+    return jsonify(videos=Video.get_all())
 
 def long_running_test():
     # probably call websocket to make sure it's running
@@ -255,7 +254,6 @@ def get_queue():
 def list_videos():
     '''
     return big video list to client
-    # TODO: video.get_all() or something
     '''
     return jsonify(videos= Video.get_all())
 
@@ -310,14 +308,15 @@ def clean_video_list():
 
 @app.route('/_convert_video')
 def convert_video():
-    # TODO: block this from being accessed more than once
+    # TODO: stop this from being accessed more than once
     # TODO: check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match
     # TODO: check original resolution, don't change if under 1080p
     # TODO: check not overwriting lowercase filename
     videoId = request.args.get('videoId', '', type=int)
     video = Video.load(videoId)
     lastDot = video.filename.rindex('.')
-    newfilename = video.filename[:lastDot] + '.mp4'
+    # not sure i'm happy with this rename
+    newfilename = video.filename[:lastDot] + '_h264.mp4'
 
     print('ffmpeg -y -i "downloads/'+video.filename+'" -vf scale=1920:-1 "downloads/' + newfilename + '"' )
     

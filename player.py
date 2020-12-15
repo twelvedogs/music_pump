@@ -67,15 +67,6 @@ class Player:
         # if(str(status.player_state)=='IDLE'):
         #     print(status)
 
-        # we seem to get a second idle event very soon after the first once a track is finished
-        # also one directly after a new track is played
-        # there's probably a better way of handling this
-        # TODO: don't reject here, just stop auto-move/queue if too many requests
-        if(self.last_event_time >= time.time() - 1):
-            print('very fast second event error, rejecting')
-            return
-        self.last_event_time = time.time()  
-
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
             print(self.mc.status)
@@ -119,6 +110,15 @@ class Player:
         ''' 
         try to advance to next song, add song if none found 
         '''
+
+        # we seem to get a second idle event very soon after the first once a track is finished
+        # also one directly after a new track is played
+        # there's probably a better way of handling this
+        if(self.last_event_time >= time.time() - 1):
+            print('Very fast multiple advance queue requests, ignoring')
+            return
+        self.last_event_time = time.time()  
+
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
@@ -144,8 +144,10 @@ class Player:
             print('Playing next file "%s" in queue as number %d' % (next_in_queue[2], next_in_queue[3]))
             logging.info('Playing next file in queue: %s', next_in_queue[2])
             
+            # set queue position
             self.crnt_order = next_in_queue[3]
-            v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
+            # v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
+            v = Video.load(next_in_queue[0])
 
             self.play_now(v, next_in_queue[4])
 
@@ -201,13 +203,21 @@ class Player:
             print('rate limit hit, dropping request')
             return
 
-        # logging.info('play_now: adding \"' + video.filename + '\" to queue')
-
         self.time_started = time.time()
-        self.crnt_video = video
-        # TODO: increase playcount
-        # play filename right now to chromecast
-        self.play_on_chromecast(video.filename, video.title, added_by=added_by)
+
+        # TODO: only if file length is empty probably
+        if(video.update_file_properties()):
+            self.crnt_video = video
+
+
+            # epoch = datetime.utcfromtimestamp(0)
+            # self.time_started = (datetime.now() - epoch).total_seconds()
+
+            # TODO: increase playcount
+            # play filename right now to chromecast
+            self.play_on_chromecast(video.filename, video.title, added_by=added_by)
+        else:
+            print('couldn\'t add')
 
     def get_queue(self):
         conn = sqlite3.connect(cfg.db_path)
