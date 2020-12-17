@@ -18,7 +18,7 @@ function save_username(){
 
 // var myPlayer = null;
 $(function() {
-  
+  // sucks if you don't do this
   get_video();
   get_list();
   get_queue();
@@ -39,7 +39,6 @@ $(function() {
     $.growl.notice({ message: "Assigning random username!" });
     $('#username').val(username);
   }
-    //alert('page loaded');
     // videojs("example_video_1").ready(function(){
     //     myPlayer = this;
 
@@ -48,14 +47,6 @@ $(function() {
     //     // myPlayer.play();
 
     // });
-
-    // $('input[type=text]').bind('keydown', function(e) {
-    //   if (e.keyCode == 13) {
-    //     submit_form(e);
-    //   }
-    // });
-
-    // $('input[name=a]').focus();
 });
 
 function isEmptyOrSpaces(str){
@@ -63,24 +54,32 @@ function isEmptyOrSpaces(str){
 }
 
 function update_queue(queue){
-  file_list = '';
-  $.each(queue, function(i, val) {
-    file_list += '<a onclick="set_queue_position(\''+val.order+'\')">'+val.order+' - '+val.title+'</a><br>';
+  queue_html = '<ul id="queue-list" class="queue-list">';
+  $.each(queue, function(i, queue_video) {
+    queue_html += '<li><a onclick="set_queue_position(\'' + queue_video.order+'\')" title="Added by: ' + queue_video.addedBy + '">'+
+    queue_video.title + '</a></li>';
   });
-  $('#queue').html(file_list);
+
+  $('#queue').html(queue_html);
+
+  // TODO: don't scroll bottom if not at bottom?  might be fine actually
+  $('#queue').scrollTop($('#queue')[0].scrollHeight);
+
 }
 
 // don't really know what to call this, Storage_Object_With_Listeners is pretty clunky
 class Data{
   constructor() {
 
-    this.length = 0;
-    this.time_start = null;
-    this.played = 0; // song progress on server
-
-    // these are definitely used
+    this.length = 0; // current song length in seconds, should use playing_video.length instead
+    this.time_start = null; // seconds since epoch that this song started playing
+    
     this.videos = {};
+    // should i just store the last updated time on every property?  might make it easier, if i can just get back "data" from the server then use
+    // it to update the properties automatically if they're newer it might simplify things
+    this.time_videos_last_updated = get_seconds_since_epoch(); 
     this.queue = {};
+    this.time_queue_last_updated = get_seconds_since_epoch();
     this.playing_video = {};
 
     this.listeners = [];
@@ -104,24 +103,30 @@ class Data{
 
   // how do people handle changing a single property on the property?
   set(prop, val){
-    var old = this[prop]; // TODO: does this copy?
     this[prop]=val;
     // call after set so listeners get new value
-    this.call_listeners(prop, old);
+    this.call_listeners(prop);
   }
 }
 
 var data = new Data();
 data.add_listener('queue', update_queue);
-data.add_listener('videos', draw_video_list);
+data.add_listener('queue', function(){data.set('time_queue_last_updated', get_seconds_since_epoch());});
+data.add_listener('videos', draw_video_list_new);
+data.add_listener('videos', function(){data.set('time_videos_last_updated', get_seconds_since_epoch());});
 data.add_listener('playing_video', update_interface); // this might be called after video has started?
 
-function update_interface(updated, old){
-  if(!old || updated.videoId !== old.videoId){
-    console.log('new video restarting timer', updated, old);
-    // data.set('time_start', get_seconds_since_epoch()); // only to be pulled from server
+function update_interface(updated){
+  // if(!old || updated.videoId !== old.videoId){
+  //   console.log('new video should be doing stuff', updated);
+  //   // data.set('time_start', get_seconds_since_epoch()); // only to be pulled from server
+  // }
+
+  if(data.playing_video){
+    $('#currentlyPlaying').val(data.playing_video.title);
+  }else{
+    $('#currentlyPlaying').val('Nothing playing');
   }
-  $('#currentlyPlaying').val(data.playing_video.title);
   
 }
 
@@ -141,6 +146,7 @@ function update_playing(){
 
 // repeat with the interval in ms
 progress_update_timer = setInterval(update_playing, 1000);
+get_currently_playing = setInterval(get_video, 5000);
 
 // after 5 seconds stop
 // setTimeout(() => { clearInterval(timerId); alert('stop'); }, 5000);
@@ -185,6 +191,7 @@ function next(){
       if(response.length===0){
         console.log('no response')
       }else{
+        data.set('time_start', get_seconds_since_epoch()); // might actually be able to pull from server
         data.set('playing_video', response.video);
         data.set('queue', response.queue);
       }
@@ -193,13 +200,14 @@ function next(){
 function prev(){
   $.getJSON($SCRIPT_ROOT + '/_prev', {
     }, function(response) {
-        if(response.length===0){
-          console.log('no response')
-        }else{
-          data.set('playing_video', response.video);
-          data.set('queue', response.queue);
-          // TODO: set queue position
-        }
+      if(response.length===0){
+        console.log('no response')
+      }else{
+        data.set('time_start', get_seconds_since_epoch()); // might actually be able to pull from server
+        data.set('playing_video', response.video);
+        data.set('queue', response.queue);
+        // TODO: set queue position
+      }
     });
 }
 function play(){
@@ -231,21 +239,23 @@ function play_pause(){
  * get current playing video & play time
  */
 function get_video(){
-    $.getJSON($SCRIPT_ROOT + '/_get_video', {
-      }, function(response) {
-        if(response === null){
-          $.growl.error({ message: 'No Response'});
-          data.set('playing_video', null);
-          // TODO: move to listener
-          // $('#currentlyPlaying').val('Nothing playing');
-          // update_time();
-        }else{
-          console.log('_get_video', response);
-          
-          data.set('playing_video', response.video);
-          data.set('time_start', response.time_started);
-        }
-      });
+  $.getJSON($SCRIPT_ROOT + '/_get_video', {
+      queue_last_updated: data.time_queue_last_updated,
+      files_last_updated: data.time_videos_last_updated
+    }, function(response) {
+      if(response === null){
+        $.growl.error({ message: 'No Response'});
+        data.set('playing_video', null);
+        // TODO: move to listener
+        // $('#currentlyPlaying').val('Nothing playing');
+        // update_time();
+      }else{
+        data.set('playing_video', response.video);
+        data.set('time_start', response.time_started);
+        if(response.queue)
+          data.set('queue', response.queue);
+      }
+    });
 }
 
 /** dunno if i like this function name
@@ -274,7 +284,6 @@ function clean_video_list(){
 
 function delete_video(id){
   // not sure if this will convert js true to python True so stringing
-  console.log('in here')
   file_also = 'False';
   if(confirm('file also?')){
     file_also = 'True';
@@ -284,18 +293,7 @@ function delete_video(id){
       delete_file: file_also
     }, function(response) {
         $.growl.notice({ message: 'Deleting ' + response.video.title });
-        // TODO: check for data
         data.set('videos', response.videos);
-        // if(response.result.length===0){
-        //   console.log('no response');
-        //   $.growl.error({ message: 'Couldn\'t delete'});
-        // }else{
-        //   $.growl.notice({ message: 'Deleting ' + response.result.title });
-        //   // return data.videos from _delete_video
-        //   // data.set('videos', response.videos);
-        //   get_list();
-        //   console.log(response.result);
-        // }
     });
 }
 
@@ -352,11 +350,11 @@ function convert_video(videoId){
     videoId: videoId
 }, function(response) {
   
-  if(response.result.length===0){
+  if(response.length===0){
     $.growl.error({ message: 'something shat itself' });
   }else{
     // $.growl.notice({ message: 'file info ' + response.result });
-    console.log(response.result);
+    console.log(response);
   }
 });
 }
@@ -367,7 +365,7 @@ function download_video(){
         url: $('#youtubeUrl').val(),
         addedBy: $('#username').val(),
     }, function(response) {
-      console.log('finished downloading')
+      console.log('finished downloading');
       if(response.length===0){
         $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
       }else{
@@ -391,28 +389,17 @@ function clear_queue(){
   });
 }
 
-/** get the current queue */
-function process_queue(){
-  $.getJSON($SCRIPT_ROOT + '/_process_queue', {
-  }, function(response) {
-      if(response.result.length===0) {
-        console.log('nothing queued')
-        
-      } else {
-        
-      }
-  });
-}
-
 function set_queue_position(order){
   $.getJSON($SCRIPT_ROOT + '/_set_queue_position', {
     order: order
   }, function(response) {
-
-      if(response.result.length===0) {
+      if(response.length===0) {
         console.log('blarp')
       } else {
-        
+        if(response.queue)
+          data.set('queue', response.queue);
+        if(response.video)
+          data.set('crnt_video', response.video);
       }
   });
 }
@@ -436,7 +423,7 @@ function scan_folder(){
       if(response.files.length===0) {
         console.log('no files');
       } else {
-
+        
       }
   });
 }
@@ -449,13 +436,11 @@ function searchUL(searchBoxId, ulId) {
   ul = document.getElementById(ulId);
   li = ul.getElementsByTagName("li");
 
-  max_length = 20;
-  shown=0;
   // not sure how well this will work with 1000 items
   for (i = 0; i < li.length; i++) {
       a = li[i].getElementsByTagName("a")[0];
       txtValue = a.textContent || a.innerText;
-      if (txtValue.toUpperCase().indexOf(filter) > -1 && shown++ < max_length) {
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
           li[i].style.display = "";
       } else {
           li[i].style.display = "none";
@@ -486,6 +471,50 @@ function get_list(){
       data.set('videos', response.videos);
     });
 }
+function update_video_popup(video){
+  $.each(video, function(key ,prop){
+
+    $('.' + key).val(prop);
+  })
+}
+
+data.add_listener('video_popup_crnt_video', update_video_popup);
+
+var video_popup_crnt_video = null;
+function video_popup(videoId){
+  $.getJSON($SCRIPT_ROOT + '/_get_video_by_id', {
+    videoId: videoId,
+  }, function(response) {
+    data.set('video_popup_crnt_video', response);
+    video_popup_crnt_video = response;
+  });
+
+  $('#videoModal').modal()
+}
+
+function draw_video_list_new(videos){
+  var videoULLi = '';
+
+  if(videos.length===0)
+    videoULLi='';
+  else{
+    $.each(videos, function(i, video) {
+      // a tag is used for search text
+      videoULLi += '<li class="align-items-center"><span class="video-info">' +
+        '<a>' + video.title + '</a> ' +
+        '<div style="float: right">' +
+        
+        '<span class="control" onclick="play_video(\''+video.videoId+'\')">play</span>' +
+        '<span class="control" onclick="queue_video(\''+video.videoId+'\')">queue</span>' +
+        '<span class="control" onclick="video_popup(\''+video.videoId+'\')">actions</span>' +
+        '<span class="badge badge-primary badge-pill">' + video.rating + '</span>' +
+        '</div>' +
+        '</span></li>'
+    });
+  }
+  $('#videoUL').html(videoULLi);
+  searchUL('videoSearch', 'videoUL');
+}
 
 function draw_video_list(videos){
   var videoULLi = '';
@@ -511,7 +540,9 @@ function draw_video_list(videos){
         '</li>'
     });
   }
-  $('#videoUL').html(videoULLi);
-
-  searchUL('videoSearch', 'videoUL') 
+    $('#videoUL').html(videoULLi);
+    searchUL('videoSearch', 'videoUL');
 }
+ 
+
+  

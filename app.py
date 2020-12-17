@@ -28,6 +28,7 @@
     TODO: store youtube data blob
     TODO: youtube search rather than just input file
     TODO: remove all content that may cause some kind of strike
+    TODO: deal with currently playing on chromecast video on restart
 '''
 
 
@@ -49,7 +50,7 @@ import json
 from video import Video
 from player import Player
 
-import cfg
+import cfg, file_utility
 
 app = Flask(__name__)
 
@@ -58,25 +59,9 @@ player = Player()
 
 @app.route('/_scan_folder')
 def scan_folder():
-    scanpath = cfg.path
-    # exclude directories
-    files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
-    for file in files:
-        lastDot = file.rindex('.')
-        extension = file[lastDot:]
-        if(extension.lower() == '.mp4' or extension.lower() == '.mkv'):
-            # TODO: should probably use an in-memory file list
-            if(Video.find_by_filename(file) == None):
-                vid = Video(0, file, file, addedBy='Folder Scan')
-                vid.save()
-                print('added', file[:lastDot], file[lastDot:])
+    file_utility.scan_folder_for_missing()
 
-        else:
-            print('not adding '+file+' wrong file type')
-
-        time.sleep(0.01) # i'm abusing the shit out of the db so ease off a bit
-
-    return jsonify(files=files)
+    return jsonify(files=Video.get_all())
 
 @app.route('/_get_length')
 def get_length():
@@ -92,28 +77,29 @@ def set_queue_position():
     this works ridiculously well, must be something wrong lol
     TODO: what happens when we're out of queue bounds - probably nothing since they'd have to provide an order that is out of bound manually
     '''
-    order = int(request.args.get('order'))
+    test = request.args.get('order')
+    order = request.args.get('order', type=int)
     player.crnt_order = order - 1
     player.advance_queue()
     
-    return jsonify(result=True)
+    return jsonify(queue=player.get_queue())
 
 
 @app.route('/_get_file_info')
 def get_file_info():
     
-    video = Video.load(request.args.get('videoId'))
+    video = Video.load(request.args.get('videoId', type=int))
     video.update_file_properties()
 
     return jsonify(video = dict.copy(video.__dict__))
 
 @app.route('/_delete_video')
 def delete_video():
-    delete_file = request.args.get('delete_file', bool)
-    video = Video.load(request.args.get('videoId'))
+    delete_file = request.args.get('delete_file', type=bool)
+    video = Video.load(request.args.get('videoId', type=int))
     video.delete(delete_file=delete_file)
     # return jsonify(videos=Video.get_all())
-    return list_videos()
+    return jsonify(video = str(video), videos = Video.get_all())
 
 #controls
 # these can probably be collapsed into something like player_command('next')
@@ -122,8 +108,6 @@ def next():
     '''
     next button
     '''
-    # player.play_next()
-
     return jsonify(video=player.play_next(), queue=player.get_queue())
 
 @app.route('/_prev')
@@ -152,8 +136,8 @@ def play_video():
     '''
     add video with videoId after this and then go to queue next
     '''
-    added_by = request.args.get('addedBy')
-    video_id = request.args.get('videoId')
+    added_by = request.args.get('addedBy', str)
+    video_id = request.args.get('videoId', int)
     
     player.insert_video_in_queue(video_id, added_by)
 
@@ -165,10 +149,11 @@ def queue_video():
     '''
     add a video to the end of queue
     '''
-    videoId = request.args.get('videoId')
-    addedBy = request.args.get('addedBy')
-    video = player.queue_video(videoId, addedBy)
-
+    videoId = request.args.get('videoId', int)
+    addedBy = request.args.get('addedBy', str)
+    # can i just put this in the __str__ function?
+    video = dict.copy(player.queue_video(videoId, addedBy).__dict__)
+    #                 return dict.copy(self.crnt_video.__dict__)
     return jsonify(video = video, queue=player.get_queue())
 
 @app.route('/_get_play_targets')
@@ -177,6 +162,15 @@ def get_play_targets():
 
     return jsonify(result=targets) # {'title': player.crntVideo.title}) # probably won't be updated for a second
 
+# TODO: rename to _get_video or something
+@app.route('/_get_video_by_id')
+def get_video_by_id():
+
+    videoId = request.args.get('videoId', type=int)
+
+    return jsonify(Video.load(videoId).__dict__)
+
+    # return jsonify(time_started= player.time_started, video=player.get_video())
 
 @app.route('/_get_status')
 def get_status():
@@ -185,15 +179,24 @@ def get_status():
     todo: should this just be maintained and returned when requested?
             probably just return player
     '''
-    result = {}
-    result.video = player.get_video()
-    result.queue = player.get_queue()
+    return jsonify(video = player.get_video(), queue = player.get_queue())
 
-    return jsonify(result=result)
-
+# TODO: rename to _get_status or something
 @app.route('/_get_video')
 def get_video():
-    return jsonify(time_started= player.time_started, video=player.get_video())
+    client_queue_last_updated = request.args.get('queue_last_updated', type=int)
+
+    obj = {'time_started': player.time_started, 'video':player.get_video()}
+
+    if(client_queue_last_updated<player.queue_last_updated):
+        obj['queue'] = player.get_queue()
+
+    #if(client_files_last_updated<player):
+    #    obj.videos = Video.get_all()
+
+    return jsonify(obj)
+
+    # return jsonify(time_started= player.time_started, video=player.get_video())
 
 @app.route('/_subtitles')
 def subtitles():
@@ -205,8 +208,8 @@ def subtitles():
 
 @app.route('/_rate')
 def rate_video():
-    videoId = request.args.get('videoId')
-    rating = request.args.get('rating')
+    videoId = request.args.get('videoId', type=int)
+    rating = request.args.get('rating', type=int)
 
     # Video.set_rating(videoId, rating)
     conn = sqlite3.connect(cfg.db_path)
@@ -258,51 +261,10 @@ def list_videos():
     return jsonify(videos= Video.get_all())
 
 
-def ydlhook(s):
-    ''' 
-    just printing atm, need to pass back to clients 
-    TODO: status via websocket
-    '''
-    try:
-        if(s['status']!='finished'):
-            print('ydlhook: ' + s['_percent_str'])
-            # sio.emit('my_response', {'data':  s['_percent_str']})
-            # announce to websocket
-    except:
-        print('ydlhook failed: ', s)
-
-
 @app.route('/_clean_video_list')
 def clean_video_list():
     ''' cull bad entries and other cleanup stuff'''
-    conn = sqlite3.connect(cfg.db_path)
-    with conn:
-        c = conn.cursor()
-        prevTitle=''
-        for row in c.execute('''
-        select video.videoId, clone.videoId, clone.title
-            from video 
-            left join video as clone 
-            on video.title=clone.title 
-                and video.videoId!=clone.videoId
-        where clone.videoId is not null 
-        order by video.videoId asc'''):
-
-            video = {}
-            video['videoId'] = row[0]
-            video['cloneId'] = row[1]
-            video['title'] = row[2]
-
-            # close but no cigar, this will delete the first one if there's more than 2 similar records
-            if(video['title'] != prevTitle):
-                print('don\'t delete', video['videoId'])
-                prevTitle=video['title']
-                pass
-            else:
-                #c.execute('delete from video where videoId=?',(video['videoId'],))
-                print('delete', video['videoId'])
-
-            print('clone video found', video)
+    file_utility.remove_duplicate_entries()
 
     return jsonify(result=True)
 
@@ -313,106 +275,9 @@ def convert_video():
     # TODO: check original resolution, don't change if under 1080p
     # TODO: check not overwriting lowercase filename
     videoId = request.args.get('videoId', '', type=int)
-    video = Video.load(videoId)
-    lastDot = video.filename.rindex('.')
-    # not sure i'm happy with this rename
-    newfilename = video.filename[:lastDot] + '_h264.mp4'
-
-    print('ffmpeg -y -i "downloads/'+video.filename+'" -vf scale=1920:-1 "downloads/' + newfilename + '"' )
+    file_utility.convert_video(videoId)
     
-    if(video.filename == newfilename):
-        print('don\'t want to overwrite')
-        return jsonify(result=False)
-
-    print('gonna convert up "' + video.filename + '" to "' + newfilename +'"')
-    # TODO: make os independent
-    os.chdir('F://code//music_pump//')
-
-    # this actually blocks
-    subprocess.call(['ffmpeg', '-y', '-i', 'downloads/' + video.filename, '-vf', 'scale=1920:-1', 'downloads/' + newfilename])
-    
-    print('finished')
-
-    # sio.emit('my_response', {'data': 'finished converting video'})
-
-    video.filename=newfilename
-    video.save()
-
     return jsonify(result=True)
-
-def do_download(url, addedBy):
-    
-    isPlaylist = url.find('&list=')
-    if(isPlaylist>-1):
-        url=url[0:isPlaylist]
-
-    # TODO: need h264 for rpi & chromecast - probably just convert file as specifying format will get lower quality
-    # TODO: need to catch malformed url
-    # TODO: check if folder exists probably
-    # TODO: this is blocking, stop that
-    ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.path + '%(title)s - %(id)s.%(ext)s', 
-        'format': 'bestvideo+bestaudio/best', 
-        'getfilename': True, 
-        'keep': True,
-        # 'restrictfilenames': True # makes it too hard to guess file name for now
-    }) 
-
-    # 'format': '137,136'}) # 'listformats': True
-    ydl.add_progress_hook(ydlhook)
-    with ydl:
-        result = ydl.extract_info(
-            url
-            
-            # ,download=False # We just want to extract the info
-        )
-
-    if 'entries' in result:
-        # Can be a playlist or a list of videos
-        # not doing playlists yet
-        # video = result['entries'][0]
-        return jsonify(result=False)
-    else:
-        # Just a video
-        youtubeResponse = result
-
-    # not sure where to find the actual filename it was saved as
-    # todo: this is dumb, pull name from youtube dl somehow (who knows)
-    # badChars = '"\'/&|'
-    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_').replace('|','_').replace('__','_')
-	# todo: youtubedl replaces multiple underscores with a single underscore
-    # test if we had to merge the files into an mkv
-    # todo: clean up
-    try:
-        logging.info('looking for downloaded video at \"%s%s.%s\" ', cfg.path, filename, youtubeResponse['ext'])
-        my_file = Path(cfg.path + filename + '.' + youtubeResponse['ext']) # use os.join
-        if not my_file.is_file():
-            logging.info('couldn\'t find \"%s%s.%s\"', cfg.path, filename, youtubeResponse['ext'])
-            # print(youtubeResponse['ext'] + ' not found trying mkv')
-        else:
-            logging.info('found file \"%s%s.%s\" using youtube-dls extention', cfg.path, filename, youtubeResponse['ext'])
-            filename += '.' + youtubeResponse['ext']
-
-        # print('trying ' + cfg.path + filename + '.mkv')
-        my_file = Path( cfg.path + filename + '.mkv') # use os.join
-        if not my_file.is_file():
-            logging.info('couldn\'t find ' + cfg.path + filename + '.mkv')
-        else:
-            logging.info('video found at ' + cfg.path + filename + '.mkv')
-            filename += '.mkv'
-
-    except Exception as err:
-        logging.error('failed to determine filename error:\n %s', str(err))
-        filename += '.webm' # pretty hacky, most likely couldn't find because webm though
-
-    print('guessing filename should be: ' + filename)
-    # strip stuff like (Official Video) from title
-    # todo: this is dumb, maybe have a list of banned phrases, maybe just regex out everything between () or [] or ""
-    title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
-    vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
-    vid.save()
-    # list_videos()
-
-    # sio.emit('my_response', {'data': 'finished converting video'})
 
 @app.route('/_download_video')
 def download_video():
@@ -424,7 +289,7 @@ def download_video():
     url = request.args.get('url', '', type=str)
     addedBy = request.args.get('addedBy', '', type=str)
 
-    do_download(url, addedBy)
+    file_utility.do_download(url, addedBy)
 
     # sio.start_background_task(do_download, url, addedBy)
     # eventlet.greenthread.spawn(do_download, url, addedBy)

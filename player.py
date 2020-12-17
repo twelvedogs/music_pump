@@ -33,7 +33,9 @@ class Player:
         self.time_started = -1
         self.crnt_order = -1
         self.pause = 0
-        self.lastUpdated = -1
+        self.videos_last_updated = -1
+        self.queue_last_updated = -1
+
         # self.last_status = ''
         # self.mc = get_chromecast(chromecast_guid)
         self.mc = get_chromecast()
@@ -146,7 +148,6 @@ class Player:
             
             # set queue position
             self.crnt_order = next_in_queue[3]
-            # v = Video(next_in_queue[0], next_in_queue[1], next_in_queue[2])
             v = Video.load(next_in_queue[0])
 
             self.play_now(v, next_in_queue[4])
@@ -160,14 +161,13 @@ class Player:
             conn.commit()
             c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1 ))
             conn.commit()
+        self.queue_last_updated=round(time.time())
 
     def queue_video(self, videoId, addedBy):
         '''
         add video to end of queue
         '''
-        # print('playing video with id', videoId)
-        logging.info('something called queue_video with id %s', videoId)
-        # print('something called queue_video with id %s' % (videoId))
+        logging.info('queue_video %s', videoId)
         video = Video.load(videoId)
         
         #insert into queue
@@ -188,33 +188,26 @@ class Player:
                 max=-1
 
             c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, max + 1 ))
+
+        self.queue_last_updated=round(time.time())
+
         return video
-        # if not after:
-        #     # probably should just add to queue and stop current song?
-        #     self.play_now(video)
-        # else:
-        #     self.play_now(video)
 
     # this should be an internal function for the player object that is called after the queue is advanced
     # push file to player, needs to be from the queue, probably needs to be renamed
     def play_now(self, video, added_by="Not set"):
-        # rate limiter, can't play a song more than once every x sec, move to interface block rather than internal
+        # rate limiter, can't play a song more than once every x sec
         if(self.time_started >= time.time() - 0.25):
             print('rate limit hit, dropping request')
             return
 
-        self.time_started = time.time()
+        self.time_started = round(time.time())
 
         # TODO: only if file length is empty probably
         if(video.update_file_properties()):
             self.crnt_video = video
 
-
-            # epoch = datetime.utcfromtimestamp(0)
-            # self.time_started = (datetime.now() - epoch).total_seconds()
-
             # TODO: increase playcount
-            # play filename right now to chromecast
             self.play_on_chromecast(video.filename, video.title, added_by=added_by)
         else:
             print('couldn\'t add')
@@ -268,16 +261,9 @@ class Player:
             conn.commit()
 
         self.crnt_order=-1
+        self.queue_last_updated=round(time.time())
 
         return True
-
-    def process_queue(self):
-        print(self.downloading)
-        print(self.crnt_video)
-        print(self.time_started)
-        print(self.crnt_order)
-        print(self.pause)
-        print(self.lastUpdated)
 
     def auto_queue(self):
         '''
@@ -318,7 +304,6 @@ class Player:
 
         # add new random video
         if(video_to_add > 0):
-            print('auto_queue calling queue_video with videoId ', video_to_add)
             self.queue_video(video_to_add, 'Video Bot')
             return True
         else:
@@ -334,7 +319,7 @@ class Player:
         '''
 
         try:
-            # no idea why this needs to be a copy
+            # apparently the dict is always? serialisable?
             if(self.crnt_video):
                 return dict.copy(self.crnt_video.__dict__)
             else:
@@ -343,7 +328,6 @@ class Player:
         # currently on error unset
         except Exception as err:
             logging.info('Exception getting current video info:\n%s', str(err))
-            # self.crnt_video = None # might need to be more careful with this, if communication fails and this is unset then video will skip
             return None
 
     def stop(self):

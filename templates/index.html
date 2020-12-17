@@ -8,14 +8,14 @@
   <div class="row">
     <div class="col-sm">
         <input type="text" class="form-control form-control-lg" 
-          id="username" onchange="save_username()" placeholder="Need to auto-generate username here" >
+          id="username" onchange="save_username()" placeholder="chumpo gumpo" >
     </div> 
     <div class="col-sm">
         <div class="input-group">
           <input type="text" class="form-control form-control-lg" id="youtubeUrl" 
-            name="youtubeUrl" placeholder="Enter URL here">
+            name="youtubeUrl" placeholder="Enter URL to download">
           <div class="input-group-append">
-            <button class="btn btn-success"  onclick="download_video()">Go</button>
+            <button class="btn btn-success"  onclick="download_video()">download</button>
           </div>
         </div>
     </div>
@@ -30,14 +30,14 @@
         <div class="progress">
             <div id="video_progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;" ></div>
         </div>
-        <div class="btn-group btn-group-justified" role="group" aria-label="Basic example">
-          <div class="form-control" id="video_current_time">3:99</div><div class="form-control" id="video_length">3:99</div>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="prev()" >Prev</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >Play/Pause</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >Stop</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >Next</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>&nbsp; 
-            <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >Long Running async function</button>
+        <div><div class="form-control" id="video_current_time">fail</div><div class="form-control" id="video_length">whale</div></div>
+        <div class="btn-group btn-group-justified" role="group" aria-label="Basic video">
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="prev()" >prev</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >play/pause</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >stop</button>
+            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >next</button>
+            <!-- <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>&nbsp;  -->
+            <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >long running async function</button>
         </div>
 
         <div>
@@ -45,7 +45,7 @@
             <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
               placeholder="Search..." title="Type in a name">
             <div>
-            <ul id="videoUL" class="fileUL list-group"></ul>
+            <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
             </div>
         </div>
   
@@ -54,20 +54,63 @@
           <button class="btn btn-primary" onclick="get_queue()" >Refresh Queue</button>
           <button class="btn btn-primary" onclick="clear_queue()" >Clear Queue</button>
       <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >Scan Folder</button>
-          <div id="queue"></div>
+          <div id="queue" style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></div>
       </div>
   </div>
 </div>
 
-  <div class="container-fluid">
-      <div class="row">
-        <div class="col-sm"></div>
-        </div>      
-        <div class="col-sm"></div>
+<!--
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#videoModal">
+  Launch demo modal
+</button> -->
+
+<button type="button" class="btn btn-primary" onclick="$('#videoModal').modal()">
+  Launch demo modal
+</button>
+
+<!-- Modal -->
+<div class="modal fade" id="videoModal" tabindex="-1" role="dialog" aria-labelledby="videoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="videoModalLabel">Modal title</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="videoJson">            
+          addedBy <input type="text" class="addedBy" />                  <br/>         
+          dateAdded<input type="text" class="dateAdded" />               <br/>             
+          file_properties <input type="text" class="file_properties" />  <br/>                         
+          filename <input type="text" class="filename" />                <br/>           
+          lastPlayed <input type="text" class="lastPlayed" />            <br/>               
+          length<input type="text" class="length" />                     <br/>       
+          mature<input type="text" class="mature" />                     <br/>       
+          rating <input type="text" class="rating" />                    <br/>       
+          title<input type="text" class="title" />                       <br/>     
+          url <input type="text" class="url" />                          <br/> 
+          videoId<input type="text" class="videoId" />                   <br/>         
+          videoType <input type="text" class="videoType" />              <br/>   
+          <button class="btn" onclick="if(confirm('delete ' + escape(video_popup_crnt_video.title) + '?')){ delete_video(video_popup_crnt_video.videoId); }">delete</button>
+          <button class="btn" onclick="get_file_info( video_popup_crnt_video.videoId )">get file info</button>
+          <button class="btn" onclick="if(confirm('convert ' + escape(video_popup_crnt_video.title)+' to h264 1080p?')){ convert_video(video_popup_crnt_video.videoId); }">convert video</button>
+          <button onclick="rate(video_popup_crnt_video.videoId,1)">1</button>
+          <button onclick="rate(video_popup_crnt_video.videoId,2)">2</button>
+          <button onclick="rate(video_popup_crnt_video.videoId,3)">3</button>
+          <button onclick="rate(video_popup_crnt_video.videoId,4)">4</button>
+          <button onclick="rate(video_popup_crnt_video.videoId,5)">5</button>
+          
         </div>
-      </div> 
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary">Save changes</button>
+      </div>
+    </div>
   </div>
-  
+</div>
+
 <script src="https://code.jquery.com/jquery-3.2.1.min.js" 
    crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" 

@@ -11,12 +11,25 @@
     * {
       box-sizing: border-box;
     }
-    
+    .queue-list{
+      list-style-type: none;
+      padding: 0;
+      margin: 0;  
+    }
+
+    .queue-list li{
+      cursor: pointer;
+    }
+
+    .queue-list li:hover{
+      background: #eee;
+    }
+
     /* rename maybe to .searchableUL and .searchableULInput */
     .fileSearch {
-      background-image: url('/css/searchicon.png');
+      /*background-image: url('/static/css/searchicon.png');
       background-position: 10px 12px;
-      background-repeat: no-repeat;
+      background-repeat: no-repeat;*/
       width: 100%;
       font-size: 16px;
       padding: 12px 20px 12px 40px;
@@ -30,18 +43,23 @@
       margin: 0;
     }
     
-    .fileUL li a {
+    .fileUL li .video-info {
       border: 1px solid #ddd;
       margin-top: -1px; /* Prevent double borders */
       background-color: #f6f6f6;
-      padding: 12px;
+      padding: 4px;
       text-decoration: none;
       font-size: 18px;
       color: black;
       display: block
     }
-    
-    .fileUL li a:hover:not(.header) {
+
+    .fileUL li .video-info .control {
+      padding: 4px;
+      color: black;
+      cursor: pointer;
+    }
+    .fileUL li .video-info:hover:not(.header) {
       background-color: #eee;
     }
     </style>
