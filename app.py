@@ -77,7 +77,6 @@ def set_queue_position():
     this works ridiculously well, must be something wrong lol
     TODO: what happens when we're out of queue bounds - probably nothing since they'd have to provide an order that is out of bound manually
     '''
-    test = request.args.get('order')
     order = request.args.get('order', type=int)
     player.crnt_order = order - 1
     player.advance_queue()
@@ -317,6 +316,6 @@ if __name__ == '__main__':
     setup_logging()
     #app.debug = False
     # this isn't setting the ip/port correctly
-    app.run(host= '0.0.0.0', port=80)
+    app.run(host= '0.0.0.0', port=5000)
     #socketio.run(sapp)
 
