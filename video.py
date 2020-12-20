@@ -102,7 +102,7 @@ class Video:
             videos = []
 
             # dunno if this can be simplified
-            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties, length FROM video ORDER BY videoId desc'):
+            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties, length FROM video ORDER BY title COLLATE NOCASE asc'):
                 video = {}
                 video['videoId'] = row[0]
                 video['title'] = row[1]
@@ -127,7 +127,7 @@ class Video:
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            for row in c.execute('SELECT * FROM video where videoId = ? ORDER BY dateAdded desc', (videoId,)):
+            for row in c.execute('SELECT * FROM video where videoId = ?', (videoId,)):
                 video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], \
                     dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8], \
                     url = row[9], file_properties=row[10], length=row[11])

@@ -65,9 +65,8 @@ class Player:
         player_state=='UNKNOWN' probably means the chromecast is disconnected, it will have lost the listener anyway
         is mc.status the same as the status passed in?
         '''
-        # print(str(status.player_state), self.mc.status.idle_reason)
-        # if(str(status.player_state)=='IDLE'):
-        #     print(status)
+
+        logging.info('new chromecast status %s', self.mc.status)
 
         # self.status = status.player_state
 
@@ -75,14 +74,14 @@ class Player:
             print('did we lose the chromecast?')
             print(self.mc.status)
 
-        if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason == 'ERROR'):
-            print('IDLE status due to SHITTING ITSELF')
-            # self.mc.status
-            print(self.mc.status)
+        # if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason == 'ERROR'):
+        #     print('IDLE status due to SHITTING ITSELF')
+        #     # self.mc.status
+        #     print(self.mc.status)
 
         # check if idle is a "new" status and ignore if not
         if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
-            print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
+            # print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
             self.advance_queue()
 
     def play_on_chromecast(self, file, title='', added_by='Unknown'):
@@ -101,8 +100,7 @@ class Player:
         
         self.mc.enable_subtitle(1)
         self.mc.block_until_active()
-        
-        
+
         self.mc.play()
 
         
@@ -126,15 +124,13 @@ class Player:
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            logging.info('Trying to play queue order > %s', self.crnt_order)
-            print('Trying to play queue order > %d' % (self.crnt_order, ))
+            logging.info('Trying to play queue order > %d', self.crnt_order)
             next_in_queue_sql = 'select video.videoId, video.title, video.filename, queue.[order], queue.addedBy from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1'
             rows = c.execute(next_in_queue_sql,(self.crnt_order,))
             next_in_queue = rows.fetchone()
 
             # if no videos in queue add one
             if(next_in_queue == None):
-                print('At end of existing queue, calling auto_queue()')
                 logging.info('At end of existing queue, calling auto_queue()')
                 
                 self.auto_queue()
@@ -145,7 +141,6 @@ class Player:
 
             rows.close()
 
-            print('Playing next file "%s" in queue as number %d' % (next_in_queue[2], next_in_queue[3]))
             logging.info('Playing next file in queue: %s', next_in_queue[2])
             
             # set queue position
@@ -315,8 +310,6 @@ class Player:
     def get_video(self):
         ''' 
         get current video but look it up in db to get extra info and pass it all back
-        need: length, rating, who added
-        TODO: get video length
         TODO: get crnt video from chromecast if required, otherwise it's only findable if we've manipulated the chromecast since startup
         '''
 

@@ -11,28 +11,35 @@ import random
 import time
 import youtube_dl
 import json
+import ntpath
 
 from video import Video
 from player import Player
 
 import cfg
+def get_extension(filename):
+    lastDot = filename.rindex('.')
+    extension = filename[lastDot:]
+    fn = filename[:lastDot]
+    return fn, extension
+
 
 def scan_folder_for_missing():
     scanpath = cfg.download_path
     # exclude directories
     files = [f for f in os.listdir(scanpath) if os.path.isfile(os.path.join(scanpath, f))]
-    for file in files:
-        lastDot = file.rindex('.')
-        extension = file[lastDot:]
+    for f in files:
+        lastDot = f.rindex('.')
+        extension = f[lastDot:]
         if(extension.lower() == '.mp4' or extension.lower() == '.mkv'):
             # TODO: should probably use an in-memory file list
-            if(Video.find_by_filename(file) == None):
-                vid = Video(0, file, file, addedBy='Folder Scan')
+            if(Video.find_by_filename(f) == None):
+                vid = Video(0, f, f, addedBy='Folder Scan')
                 vid.save()
-                print('added', file[:lastDot], file[lastDot:])
+                print('added', f[:lastDot], f[lastDot:])
 
         else:
-            print('not adding '+file+' wrong file type')
+            print('not adding '+f+' wrong file type')
 
         time.sleep(0.01) # i'm abusing the shit out of the db so ease off a bit
 
@@ -150,40 +157,41 @@ def do_download(url, addedBy):
         # Just a video
         youtubeResponse = result
 
-    # not sure where to find the actual filename it was saved as
-    # todo: this is dumb, pull name from youtube dl somehow (who knows)
-    # badChars = '"\'/&|'
-    filename = (youtubeResponse['title'] + ' - ' + youtubeResponse['id']).replace('"','\'').replace('/','_').replace('|','_').replace('__','_')
-	# todo: youtubedl replaces multiple underscores with a single underscore
+    full_path = ydl.prepare_filename(youtubeResponse)
+    #full_filename = ntpath.basename(full_path)
+    path_name, ext = get_extension(full_path)
+    found_file = False
     # test if we had to merge the files into an mkv
-    # todo: clean up
     try:
-        logging.info('looking for downloaded video at \"%s%s.%s\" ', cfg.download_path, filename, youtubeResponse['ext'])
-        my_file = Path(cfg.download_path + filename + '.' + youtubeResponse['ext']) # use os.join
-        if not my_file.is_file():
-            logging.info('couldn\'t find \"%s%s.%s\"', cfg.download_path, filename, youtubeResponse['ext'])
-            # print(youtubeResponse['ext'] + ' not found trying mkv')
-        else:
-            logging.info('found file \"%s%s.%s\" using youtube-dls extention', cfg.download_path, filename, youtubeResponse['ext'])
-            filename += '.' + youtubeResponse['ext']
+        logging.info('looking for downloaded video at \"%s\" ', full_path)
 
-        # print('trying ' + cfg.path + filename + '.mkv')
-        my_file = Path( cfg.download_path + filename + '.mkv') # use os.join
-        if not my_file.is_file():
-            logging.info('couldn\'t find ' + cfg.download_path + filename + '.mkv')
+        if Path(full_path).is_file():
+            found_file = True
+            logging.info('found file \"%s\" using youtube-dl filename', full_path)
         else:
-            logging.info('video found at ' + cfg.download_path + filename + '.mkv')
-            filename += '.mkv'
+            logging.info('couldn\'t find \"%s\"', full_path)          
+
+            if Path(path_name + '.mkv').is_file():
+                found_file = True
+                logging.info('video found at ' + path_name + '.mkv')
+                ext = '.mkv'
+            else:
+                logging.info('couldn\'t find ' + path_name + '.mkv')
 
     except Exception as err:
-        logging.error('failed to determine filename error:\n %s', str(err))
-        filename += '.webm' # pretty hacky, most likely couldn't find because webm though
+        logging.error('failed to determine path_name error:\n %s', str(err))
 
-    print('guessing filename should be: ' + filename)
-    # strip stuff like (Official Video) from title
-    # todo: this is dumb, maybe have a list of banned phrases, maybe just regex out everything between () or [] or ""
-    title = youtubeResponse['title'].replace('(Music Video)','').replace('(Official Video)', '').replace('(Official Music Video)', '')
-    vid = Video(title=title, filename=filename, dateAdded=datetime.now(), addedBy=addedBy, url=url)
+    if(not found_file):
+        print('couldn\'t find file '+ path_name)
+        return False
+
+    print('filename should be: ' + path_name + ext)
+
+    # todo: this contains a lot of bullshit like [Official Video] maybe have a list of banned phrases, maybe just regex out everything between () or [] or ""
+    # possibly get title from one of those lookup tools like is used in kodi
+    title = youtubeResponse['title']
+    # apparently unix filenames can contain \ so ntpath.basename(path_name + ext) could fail
+    vid = Video(title=title, filename=ntpath.basename(path_name + ext), dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
     # list_videos()
 

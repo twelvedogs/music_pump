@@ -519,11 +519,17 @@ function draw_video_list_new(videos){
     videoULLi='';
   else{
     $.each(videos, function(i, video) {
+      if(video.title.length<60){
+        title = video.title;
+      }else{
+        title = video.title.substring(0,57) + '...';
+      }
+
+      
       // a tag is used for search text
       videoULLi += '<li class="align-items-center"><span class="video-info">' +
-        '<a>' + video.title + '</a> ' +
+        '<a style="display: none; width: 0px">' + video.title + '</a> ' + title +
         '<div style="float: right">' +
-        
         '<span class="control" onclick="play_video(\''+video.videoId+'\')">play</span>' +
         '<span class="control" onclick="queue_video(\''+video.videoId+'\')">queue</span>' +
         '<span class="control" onclick="video_popup(\''+video.videoId+'\')">actions</span>' +
