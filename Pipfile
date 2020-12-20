@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+youtube-dl = ">=2019.9.12.1"
+Flask = ">=1.1.1"
+get-video-properties = "*"
+pychromecast = "*"
+
+[dev-packages]
+pylint = "*"
+
+[requires]
+python_version = "3.9"
