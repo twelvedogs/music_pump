@@ -93,16 +93,21 @@ class Video:
             return None
 
     @staticmethod
-    def get_all():
+    def get_all(order_by_date = False):
         # Video.get_all()
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
 
             videos = []
+            sql_str = 'SELECT videoId, title, filename, rating, addedBy, file_properties, length FROM video'
+            if(order_by_date):
+                sql_str = sql_str + ' ORDER BY dateAdded DESC'
+            else:
+                sql_str = sql_str + ' ORDER BY title COLLATE NOCASE asc'
 
             # dunno if this can be simplified
-            for row in c.execute('SELECT videoId, title, filename, rating, addedBy, file_properties, length FROM video ORDER BY title COLLATE NOCASE asc'):
+            for row in c.execute(sql_str):
                 video = {}
                 video['videoId'] = row[0]
                 video['title'] = row[1]

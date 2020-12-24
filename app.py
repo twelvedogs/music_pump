@@ -183,14 +183,17 @@ def get_status():
     todo: should this just be maintained and returned when requested?
             probably just return player
     '''
-    return jsonify(video = player.get_video(), queue = player.get_queue())
+
+    download_status = {'url': 'http://youtube.com/whatevs', 'progress': 50 }
+
+    return jsonify(video = player.get_video(), queue = player.get_queue(), download_status = download_status)
 
 # TODO: rename to _get_status or something
 @app.route('/_get_video')
 def get_video():
     client_queue_last_updated = request.args.get('queue_last_updated', type=int)
 
-    obj = {'time_started': player.time_started, 'video':player.get_video()}
+    obj = {'time_started': player.time_started, 'video': player.get_video()}
 
     if(client_queue_last_updated<player.queue_last_updated):
         obj['queue'] = player.get_queue()
@@ -199,8 +202,6 @@ def get_video():
     #    obj.videos = Video.get_all()
 
     return jsonify(obj)
-
-    # return jsonify(time_started= player.time_started, video=player.get_video())
 
 @app.route('/_subtitles')
 def subtitles():
@@ -308,6 +309,16 @@ def send_video(path):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+#controls
+# these can probably be collapsed into something like player_command('next')
+@app.route('/list')
+def list():
+    '''
+    big video list page
+    '''
+
+    return render_template('list.html', videos=Video.get_all(order_by_date = True))
 
 def setup_logging():
     logging.basicConfig(filename='app.log', level=logging.INFO)

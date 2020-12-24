@@ -333,6 +333,27 @@ function get_play_targets(){
     });
 }
 
+function set_play_target(device_id){
+  if(!device_id)
+    alert('No Device Selected');
+
+  $.getJSON($SCRIPT_ROOT + '/_set_play_target', {
+    device_id: device_id
+  }, function(response) {
+        if(response.result.length===0){
+          console.log('no response');
+          $.growl.error({ message: 'no play targets'});
+        }else{
+          $.growl.notice({ message: 'found play targets' });
+          $('#play_targets').empty()
+          $.each(response.result, function(i, val){
+            $('#play_targets').append(new Option(val.name, val.uuid));
+          });
+          console.log(response.result);
+        }
+    });
+}
+
 function play_video(id){
     $.getJSON($SCRIPT_ROOT + '/_play_video', {
         videoId: id,

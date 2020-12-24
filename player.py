@@ -95,9 +95,10 @@ class Player:
             title=file
 
         # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
-        # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video content_type will work
+        # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video 
+        # content_type will work (possibly only those supported by your model device though)
         self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, \
-            title='%s - Added by %s' % (title, added_by), content_type = 'video/mp4', \
+            title='%s - %s' % (title, added_by), content_type = 'video/mp4', \
             subtitles='http://192.168.1.10:5000/_subtitles', subtitle_id=1, subtitles_mime="text/vtt") #, autoplay=True)
         
         self.mc.enable_subtitle(1)
@@ -303,7 +304,7 @@ class Player:
 
         # add new random video
         if(video_to_add > 0):
-            self.queue_video(video_to_add, 'Video Bot')
+            self.queue_video(video_to_add, 'bot ')
             return True
         else:
             print('Failed to get a video')
