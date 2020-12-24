@@ -1,2 +1,4 @@
 Flask>=1.1.1
 youtube-dl>=2019.9.12.1
+get-video-properties>=0.1.1
+pychromecast>=7.6.0

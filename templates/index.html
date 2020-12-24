@@ -5,6 +5,7 @@
 <select id="play_targets"></select>
 <input type=button onclick="get_play_targets()" value="get play targets">
 <input type=button onclick="set_play_target()" value="set target">
+<select id="play_targets" onchange="set_play_target($(this).val())"></select><input type=button onclick="get_play_targets()" value="get play targets">
 
 <div class="container-fluid">
   <div class="row">

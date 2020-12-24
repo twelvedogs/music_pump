@@ -68,6 +68,8 @@ class Player:
 
         logging.info('new chromecast status %s', self.mc.status)
 
+        # self.status = status.player_state
+
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
             print(self.mc.status)
