@@ -17,8 +17,8 @@ def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
     for cc in chromecasts:
         device = cc.device
         # print('device', device)
-
-        if(device.friendly_name=='Office'):
+        device.uuid
+        if(device.uuid==device_id):
             # print('Found office')
             cc.wait()
             cc.set_volume(0.01)
@@ -60,6 +60,11 @@ class Player:
 
     def set_play_target(self, device_id):
         self.target_device_id = device_id
+        self.mc = get_chromecast(device_id)
+        
+        self.last_event_time = -1
+        # dunno if this will cause trubs
+        self.mc.register_status_listener(self)
 
     def new_media_status(self, status):
         '''
@@ -70,7 +75,7 @@ class Player:
 
         logging.info('new chromecast status %s', self.mc.status)
 
-        # self.status = status.player_state
+        self.status = status.player_state
 
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')

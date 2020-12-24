@@ -4,8 +4,6 @@ music_videos/
 *.mp4
 *.7z
 ffmpeg.exe
-app.log
 video.db
 * - Copy.*
 *.log
-
