@@ -155,6 +155,11 @@ def queue_video():
     #                 return dict.copy(self.crnt_video.__dict__)
     return jsonify(video = video, queue=player.get_queue())
 
+@app.route('/_set_play_target'):
+dev set_play_target():
+    device_id = request.args.get('device_id', type=int)
+    player.set_play_target(device_id)
+
 @app.route('/_get_play_targets')
 def get_play_targets():
     targets = Player.get_play_targets()

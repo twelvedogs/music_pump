@@ -9,8 +9,8 @@ import cfg
 
 chromecast = 'Office'
 
-
-def get_chromecast():
+# defaults to office
+def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
     # dunno what this is but the first element is the list of ccasts
     chromecasts = pychromecast.get_chromecasts()[0]
 
@@ -58,6 +58,8 @@ class Player:
 
         return devices
 
+    def set_play_target(self, device_id):
+        self.target_device_id = device_id
 
     def new_media_status(self, status):
         '''
