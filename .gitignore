@@ -7,4 +7,5 @@ ffmpeg.exe
 app.log
 video.db
 * - Copy.*
-app.log
+*.log
+
