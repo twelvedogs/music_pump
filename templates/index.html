@@ -2,7 +2,9 @@
 {% block body %}
 
 
-<select id="play_targets"></select><input type=button onclick="get_play_targets()" value="get play targets">
+<select id="play_targets"></select>
+<input type=button onclick="get_play_targets()" value="get play targets">
+<input type=button onclick="set_play_target()" value="set target">
 
 <div class="container-fluid">
   <div class="row">
@@ -41,7 +43,12 @@
         </div>
 
         <div>
-            <h3>Videos <button class="btn btn-primary .btn-lg " onclick="get_list()" >Refresh File List</button> <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button></h3>
+            <h3>videos 
+              <button class="btn btn-primary .btn-lg " onclick="get_list()" >refresh file list</button> 
+              <!-- currently broken -->
+              <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> -->
+              <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >queue visible</button>
+            </h3>
             <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
               placeholder="Search..." title="Type in a name">
             <div>
@@ -51,8 +58,8 @@
   
       </div> 
       <div class="col-sm">
-          <button class="btn btn-primary" onclick="get_queue()" >Refresh Queue</button>
-          <button class="btn btn-primary" onclick="clear_queue()" >Clear Queue</button>
+          <button class="btn btn-primary" onclick="get_queue()" >refresh queue</button>
+          <button class="btn btn-primary" onclick="clear_queue()" >clear queue</button>
       <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >Scan Folder</button>
           <div id="queue" style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></div>
       </div>
