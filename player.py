@@ -7,8 +7,6 @@ import time
 from video import Video
 import cfg
 
-chromecast = 'Office'
-
 # defaults to office
 def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
     # dunno what this is but the first element is the list of ccasts
@@ -17,8 +15,8 @@ def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
     for cc in chromecasts:
         device = cc.device
         # print('device', device)
-        device.uuid
-        if(device.uuid==device_id):
+
+        if(str(device.uuid)==device_id):
             # print('Found office')
             cc.wait()
             cc.set_volume(0.01)
@@ -36,13 +34,17 @@ class Player:
         self.videos_last_updated = -1
         self.queue_last_updated = -1
 
-        # self.last_status = ''
-        # self.mc = get_chromecast(chromecast_guid)
+        self.status = ''
+        self.target_device_id = ''
+
         self.mc = get_chromecast()
-        # self.mc.set_volume
+
         # this should only be called once lol
         self.last_event_time = -1
-        self.mc.register_status_listener(self)
+        if(self.mc != None):
+            self.mc.register_status_listener(self)
+        else:
+            print('failed to get chromecast')
         
 
     @staticmethod
@@ -54,13 +56,14 @@ class Player:
         for cc in chromecasts:
             device = cc.device
             # "friendly_name", "model_name", "manufacturer", "uuid", "cast_type"
-            devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs
+            devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs, device.__dict__ ?
 
         return devices
 
     def set_play_target(self, device_id):
         self.target_device_id = device_id
         self.mc = get_chromecast(device_id)
+        print('new chromecast %s', (self.mc, ))
         
         self.last_event_time = -1
         # dunno if this will cause trubs
@@ -79,7 +82,8 @@ class Player:
 
         if(str(status.player_state)=='UNKNOWN'):
             print('did we lose the chromecast?')
-            print(self.mc.status)
+            logging.info('status unknown\n %s', self.mc.status)
+            # print(self.mc.status)
 
         # if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason == 'ERROR'):
         #     print('IDLE status due to SHITTING ITSELF')

@@ -4,9 +4,9 @@
 
 <select id="play_targets"></select>
 <input type=button onclick="get_play_targets()" value="get play targets">
-<input type=button onclick="set_play_target()" value="set target">
-<select id="play_targets" onchange="set_play_target($(this).val())"></select><input type=button onclick="get_play_targets()" value="get play targets">
+<input type=button onclick="set_play_target($(play_targets).val())" value="set target">
 
+<!-- username/download row -->
 <div class="container-fluid">
   <div class="row">
     <div class="col-sm">
@@ -21,6 +21,9 @@
             <button class="btn btn-success"  onclick="download_video()">download</button>
           </div>
         </div>
+        <div class="progress">
+          <div id="download_progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;" ></div>
+        </div>
     </div>
   </div>
 </div>
@@ -28,42 +31,56 @@
 
 <div class="container-fluid">
     <div class="row">
+      <!-- left column (player and file list) -->
       <div class="col-sm">
+
         <input type="text" class="form-control form-control-lg" id="currentlyPlaying">
         <div class="progress">
             <div id="video_progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;" ></div>
         </div>
-        <div><div class="form-control" id="video_current_time">fail</div><div class="form-control" id="video_length">whale</div></div>
-        <div class="btn-group btn-group-justified" role="group" aria-label="Basic video">
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="prev()" >prev</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >play/pause</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >stop</button>
-            <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >next</button>
-            <!-- <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="get_video()" >get_video</button>&nbsp;  -->
-            <button type="button" class="btn btn-warning .btn-lg playerControls" onclick="process_queue()" >long running async function</button>
+        <!-- control row -->
+        <div class="row">
+          <div class="col-sm">
+            <div class="btn-group btn-group-justified" role="group" aria-label="Basic video">
+                <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="prev()" >prev</button>
+                <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >play/pause</button>
+                <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >stop</button>
+                <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >next</button>
+            </div>
+          </div>
+          <div class="col-sm"><div class="form-control" id="video_current_time">fail</div></div>
+          <div class="col-sm"><div class="form-control" id="video_length">whale</div></div>
         </div>
+
+
 
         <div>
             <h3>videos 
               <button class="btn btn-primary .btn-lg " onclick="get_list()" >refresh file list</button> 
               <!-- currently broken -->
               <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> -->
-              <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >queue visible</button>
+              <button class="btn btn-primary .btn-lg " onclick="queue_search()" >queue visible</button>
             </h3>
             <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
               placeholder="Search..." title="Type in a name">
             <div>
-            <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
+            
+              <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
+
             </div>
         </div>
-  
+
       </div> 
+      <!-- right column, queue list -->
       <div class="col-sm">
+
           <button class="btn btn-primary" onclick="get_queue()" >refresh queue</button>
           <button class="btn btn-primary" onclick="clear_queue()" >clear queue</button>
-      <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >Scan Folder</button>
+          <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >Scan Folder</button>
           <div id="queue" style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></div>
+
       </div>
+
   </div>
 </div>
 

@@ -54,9 +54,9 @@ function isEmptyOrSpaces(str){
 }
 
 function update_queue(queue){
-  queue_html = '<ul id="queue-list" class="queue-list">';
+  queue_html = '<ul id="queue-list" class="fileUL list-group" >'; // class="queue-list"
   $.each(queue, function(i, queue_video) {
-    queue_html += '<li><a onclick="set_queue_position(\'' + queue_video.order+'\')" title="Added by: ' + queue_video.addedBy + '">'+
+    queue_html += '<li class="video-info"><a onclick="set_queue_position(\'' + queue_video.order+'\')" title="Added by: ' + queue_video.addedBy + '">'+
     queue_video.title + '</a></li>';
   });
 

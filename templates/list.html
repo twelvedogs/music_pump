@@ -4,7 +4,7 @@
 <tr><td>youtube search</td><td>added by</td></tr>
 
 {% for video in videos %}
-<tr class="flash"><td><a href="https://www.youtube.com/results?search_query={{ video.title }}">{{ video.title }}</a></td><td>{{ video.addedBy }}</td></tr>
+<tr class="flash"><td><a href="https://www.youtube.com/results?search_query={{ video.title|replace('&','%26') }}">{{ video.title }}</a></td><td>{{ video.addedBy }}</td></tr>
 {% endfor %}
 
 </table>

@@ -155,7 +155,7 @@ def queue_video():
     #                 return dict.copy(self.crnt_video.__dict__)
     return jsonify(video = video, queue=player.get_queue())
 
-@app.route('/_set_play_target')
+@app.route('/_set_play_target')  
 def set_play_target():
     device_id = request.args.get('device_id', type=int)
     player.set_play_target(device_id)
@@ -276,7 +276,7 @@ def clean_video_list():
 @app.route('/_convert_video')
 def convert_video():
     # TODO: stop this from being accessed more than once
-    # TODO: check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and change crop on vlc to match
+    # TODO: check for black bars with "ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect -f null -" from https://superuser.com/questions/810471/remove-mp4-video-top-and-bottom-black-bars-using-ffmpeg and encode without bars
     # TODO: check original resolution, don't change if under 1080p
     # TODO: check not overwriting lowercase filename
     videoId = request.args.get('videoId', '', type=int)
@@ -320,16 +320,24 @@ def list():
 
     return render_template('list.html', videos=Video.get_all(order_by_date = True))
 
-def setup_logging():
-    logging.basicConfig(filename='app.log', level=logging.INFO)
-    # logger = logging.get_logger()
-    logging.info('Started')
-    # shut up the werkzeug logger 
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+# logging is way to fucking hard in python for no reason
+# def setup_logging():
+#     # logging.basicConfig(filename='app.log', level=logging.INFO, args)
+#     # logger = logging.get_logger()
+#     logging.info('Started')
+#     # shut up the werkzeug logger 
+#     log = logging.getLogger('werkzeug')
+#     log.setLevel(logging.ERROR)
+
+def setup_utf8_logging():
+    root_logger= logging.getLogger()
+    root_logger.setLevel(logging.DEBUG) # or whatever
+    handler = logging.FileHandler('test.log', 'w', 'utf-8') # or whatever
+    handler.setFormatter(logging.Formatter('%(name)s %(message)s')) # or whatever
+    root_logger.addHandler(handler)
 
 if __name__ == '__main__':
-    setup_logging()
+    setup_utf8_logging()
     #app.debug = False
     # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=5000)
