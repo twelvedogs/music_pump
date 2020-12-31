@@ -89,28 +89,33 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="videoModalLabel">Modal title</h5>
+        <h5 class="modal-title" id="videoModalLabel">video properties</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
-        <div id="videoJson">            
-          addedBy <input type="text" class="addedBy" />                  <br/>         
-          dateAdded<input type="text" class="dateAdded" />               <br/>             
-          file_properties <input type="text" class="file_properties" />  <br/>                         
-          filename <input type="text" class="filename" />                <br/>           
-          lastPlayed <input type="text" class="lastPlayed" />            <br/>               
-          length<input type="text" class="length" />                     <br/>       
-          mature<input type="text" class="mature" />                     <br/>       
-          rating <input type="text" class="rating" />                    <br/>       
-          title<input type="text" class="title" />                       <br/>     
-          url <input type="text" class="url" />                          <br/> 
-          videoId<input type="text" class="videoId" />                   <br/>         
-          videoType <input type="text" class="videoType" />              <br/>   
+        <div id="videoJson">
+          <table>
+            <tr><td>video id</td><td><input type="text" class="videoId" /></td></tr>
+            <tr><td>title</td><td><input type="text" class="title" /></td></tr>
+            <tr><td>filename</td><td><input type="text" class="filename" /></td></tr>
+            <tr><td>added by</td><td><input type="text" class="addedBy" /></td></tr>         
+            <tr><td>date added</td><td><input type="text" class="dateAdded" /></td></tr>             
+            <tr><td>file_properties</td><td><input type="text" class="file_properties" /></td></tr>                                   
+            <tr><td>codec</td><td><input type="text" class="codec" disabled="disabled"/></td></tr>                                   
+            <tr><td>last played</td><td><input type="text" class="lastPlayed" /></td></tr>               
+            <tr><td>length</td><td><input type="text" class="length" /></td></tr>       
+            <tr><td>mature</td><td><input type="text" class="mature" /></td></tr>       
+            <tr><td>rating</td><td><input type="text" class="rating" /></td></tr>       
+            <tr><td>url</td><td><input type="text" class="url" /></td></tr>
+            <tr><td>video type</td><td><input type="text" class="videoType" /></td></tr>
+          </table>
           <button class="btn" onclick="if(confirm('delete ' + escape(video_popup_crnt_video.title) + '?')){ delete_video(video_popup_crnt_video.videoId); }">delete</button>
           <button class="btn" onclick="get_file_info( video_popup_crnt_video.videoId )">get file info</button>
           <button class="btn" onclick="if(confirm('convert ' + escape(video_popup_crnt_video.title)+' to h264 1080p?')){ convert_video(video_popup_crnt_video.videoId); }">convert video</button>
+          <br>
+          <button onclick="rate(video_popup_crnt_video.videoId,0)">0</button>
           <button onclick="rate(video_popup_crnt_video.videoId,1)">1</button>
           <button onclick="rate(video_popup_crnt_video.videoId,2)">2</button>
           <button onclick="rate(video_popup_crnt_video.videoId,3)">3</button>

@@ -115,10 +115,6 @@ class Player:
 
         self.mc.play()
 
-        
-
-    def status(self):
-        return self.mc.status
 
     def advance_queue(self):
         ''' 

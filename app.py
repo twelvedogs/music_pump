@@ -11,12 +11,9 @@
     TODO: thumbnails like
           ffmpeg -i InputFile.FLV -vframes 1 -an       -s 400x222 -ss 30 OutputFile.jpg
                                   1 frame    no audio  size       30 sec in
-    TODO: re-create database if non-existant so can add to .gitignore
-    TODO: youtube-dl functionality often can't find filename and breaks
     TODO: block youtube-dl while downloading
     TODO: clear queue on launch (unless re-launched recently?)
     TODO: multi directory support
-    TODO: refresh single video info div in the file list
     TODO: improve directory scan to have smarter file name matching
     TODO: multiple files for each video?
     TODO: popup file info
@@ -35,7 +32,6 @@
 
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
-# from flask_socketio import SocketIO, emit
 # from videoprops import get_video_properties
 from datetime import datetime
 from pathlib import Path
@@ -97,8 +93,8 @@ def delete_video():
     delete_file = request.args.get('delete_file', type=bool)
     video = Video.load(request.args.get('videoId', type=int))
     video.delete(delete_file=delete_file)
-    # return jsonify(videos=Video.get_all())
-    return jsonify(video = str(video), videos = Video.get_all())
+
+    return jsonify(video = video.__dict__, videos = Video.get_all())
 
 #controls
 # these can probably be collapsed into something like player_command('next')
@@ -151,7 +147,8 @@ def queue_video():
     videoId = request.args.get('videoId', int)
     addedBy = request.args.get('addedBy', str)
     # can i just put this in the __str__ function?
-    video = dict.copy(player.queue_video(videoId, addedBy).__dict__)
+    # video = dict.copy(player.queue_video(videoId, addedBy).__dict__)
+    video = player.queue_video(videoId, addedBy).__dict__
     #                 return dict.copy(self.crnt_video.__dict__)
     return jsonify(video = video, queue=player.get_queue())
 
@@ -188,7 +185,7 @@ def get_status():
 
     return jsonify(video = player.get_video(), queue = player.get_queue(), download_status = download_status)
 
-# TODO: rename to _get_status or something
+# TODO: put extra info into get_status and make that the timed update function
 @app.route('/_get_video')
 def get_video():
     client_queue_last_updated = request.args.get('queue_last_updated', type=int)
@@ -203,6 +200,7 @@ def get_video():
 
     return jsonify(obj)
 
+# attempting to set subtitles for a video to show info, currently broken
 @app.route('/_subtitles')
 def subtitles():
     return """WEBVTT
@@ -320,7 +318,6 @@ def list():
 
     return render_template('list.html', videos=Video.get_all(order_by_date = True))
 
-# logging is way to fucking hard in python for no reason
 # def setup_logging():
 #     # logging.basicConfig(filename='app.log', level=logging.INFO, args)
 #     # logger = logging.get_logger()
@@ -331,15 +328,38 @@ def list():
 
 def setup_utf8_logging():
     root_logger= logging.getLogger()
-    root_logger.setLevel(logging.DEBUG) # or whatever
-    handler = logging.FileHandler('test.log', 'w', 'utf-8') # or whatever
-    handler.setFormatter(logging.Formatter('%(name)s %(message)s')) # or whatever
+    root_logger.setLevel(logging.DEBUG)
+    handler = logging.FileHandler('test.log', 'w', 'utf-8') 
+    handler.setFormatter(logging.Formatter('%(name)s %(message)s')) 
     root_logger.addHandler(handler)
+
+def setup_db():
+    '''
+    check for db and create if not found
+    '''
+    try:
+        f = open(cfg.db_path)
+        f.close()
+    except FileNotFoundError:
+        print("Initialising database")
+        try:
+            conn = sqlite3.connect(cfg.db_path)
+            with conn:
+                c = conn.cursor()
+                c.execute('CREATE TABLE "queue" ( "videoId" INTEGER NOT NULL, "addedBy" TEXT NOT NULL, "dateAdded" TEXT DEFAULT CURRENT_TIMESTAMP, "order" INTEGER )')
+                c.execute('CREATE TABLE "user" ( "userId" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "username" TEXT NOT NULL )')
+                c.execute('CREATE TABLE "video" ( "videoId" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE, "title" TEXT NOT NULL, "filename" TEXT NOT NULL, "rating" REAL NOT NULL DEFAULT 3, "lastPlayed" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "dateAdded" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "mature" INTEGER NOT NULL DEFAULT 1, "videoType" TEXT, "addedBy" TEXT, "srcUrl" TEXT, "file_properties" TEXT, "length" REAL )')
+                conn.commit()
+        except Exception as e:
+            print('Couldn\'t create database', e)
+
 
 if __name__ == '__main__':
     setup_utf8_logging()
+
+    setup_db()
+
     #app.debug = False
-    # this isn't setting the ip/port correctly
     app.run(host= '0.0.0.0', port=5000)
-    #socketio.run(sapp)
+
 
