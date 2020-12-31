@@ -8,4 +8,4 @@ video.db
 * - Copy.*
 *.log
 *.lock
-video.db
+*.db
