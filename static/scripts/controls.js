@@ -153,8 +153,8 @@ get_currently_playing = setInterval(get_video, 5000);
 
 function set_progress(played, length){
   // console.log('setting to', played, length);
-  $('#video_current_time').text(played);
-  $('#video_length').text(length);
+  // $('#video_current_time').text(played);
+  // $('#video_length').text(length);
   $('#video_progress').css('width','' + played/length * 100 + '%');
 }
 
@@ -470,7 +470,7 @@ function scan_folder(){
 }
 
 function searchUL(searchBoxId, ulId) {
-  var input, filter, ul, li, a, i, txtValue;
+  let input, filter, ul, li, a, i, txtValue;
   // search box
   input = document.getElementById(searchBoxId);
   filter = input.value.toUpperCase();
@@ -533,8 +533,40 @@ function video_popup(videoId){
   $('#videoModal').modal()
 }
 
+function play_locally(src){
+  let video = document.getElementById('playing_video');
+  video.style.display='block';
+  video.setAttribute('src', 'http://localhost:5000/downloads/' + src);
+  video.load();
+  video.play();
+  
+}
+
+// this doesn't work anyway
+function supportsVideoType(type) {
+  let video;
+
+  // Allow user to create shortcuts, i.e. just "webm"
+  let formats = {
+    ogg: 'video/ogg; codecs="theora"',
+    h264: 'video/mp4; codecs="avc1.42E01E"',
+    webm: 'video/webm; codecs="vp8, vorbis"',
+    vp9: 'video/webm; codecs="vp9"',
+    hls: 'application/x-mpegURL; codecs="avc1.42E01E"',
+    mkv: 'video/x-matroska'
+  };
+
+  if(!video) {
+    video = document.createElement('video')
+  }
+
+  return video.canPlayType(formats[type] || type);
+}
+
+
 function draw_video_list_new(videos){
-  var videoULLi = '';
+  let videoULLi = '';
+
 
   if(videos.length===0)
     videoULLi='';
@@ -546,11 +578,22 @@ function draw_video_list_new(videos){
         title = video.title.substring(0,57) + '...';
       }
 
-      
+      // TODO: re-write
+      let play_local_html = '<span class="control" onclick="play_locally(\'' + escape(video.filename) + '\')">local</span>';;
+      let file = video.filename;
+
+      if(file.substring(file.length - 3, file.length) === 'mkv'){
+        // if(!supportsVideoType('mkv')) {
+        if(navigator.userAgent.indexOf("Firefox") !== -1) {
+          play_local_html= '<span class="badge badge-danger badge-pill">mkv</span>';
+        }
+      }
+
       // a tag is used for search text
       videoULLi += '<li class="align-items-center"><span class="video-info">' +
         '<a style="display: none; width: 0px">' + video.title + '</a> ' + title +
         '<div style="float: right">' +
+        play_local_html +
         '<span class="control" onclick="play_video(\''+video.videoId+'\')">play</span>' +
         '<span class="control" onclick="queue_video(\''+video.videoId+'\')">queue</span>' +
         '<span class="control" onclick="video_popup(\''+video.videoId+'\')">actions</span>' +
@@ -563,33 +606,6 @@ function draw_video_list_new(videos){
   searchUL('videoSearch', 'videoUL');
 }
 
-function draw_video_list(videos){
-  var videoULLi = '';
-
-  if(videos.length===0)
-    videoULLi='';
-  else{
-    $.each(videos, function(i, val) {
-      var codec= 'Dunno';
-      try{
-        codec=val.file_properties.codec_name
-      }catch{}
-      videoULLi += '<li class="align-items-center"><a>' + 
-        val.title + ' ' + val.length + ' <i>' + val.addedBy + '</i><br>' + val.filename + ' <span class="badge badge-primary badge-pill">' + val.rating + '</span><br>'+
-        'Codec: <span class="video_info_' + val.videoId + '")">'+codec+'</span>' + 
-        '</a>' +
-        '<button class="btn" onclick="play_video(\''+val.videoId+'\')">play now</button>'+
-        '<button class="btn" onclick="queue_video(\''+val.videoId+'\')">queue</button>'+
-        '<button class="btn" onclick="if(confirm(\'delete '+escape(val.title)+'?\')){ delete_video(\''+val.videoId+'\'); }">delete</button>' +
-        '<button class="btn" onclick="get_file_info(\''+val.videoId+'\')">get file info</button>' +
-        '<button class="btn" onclick="if(confirm(\'convert '+escape(val.title)+' to h264 1080p?\')){ convert_video(\''+val.videoId+'\'); }">convert video</button>' +
-        '<button onclick="rate('+val.videoId+',1)">1</button><button onclick="rate('+val.videoId+',2)">2</button><button onclick="rate('+val.videoId+',3)">3</button><button onclick="rate('+val.videoId+',4)">4</button><button onclick="rate('+val.videoId+',5)">5</button>'+
-        '</li>'
-    });
-  }
-    $('#videoUL').html(videoULLi);
-    searchUL('videoSearch', 'videoUL');
-}
  
 
   

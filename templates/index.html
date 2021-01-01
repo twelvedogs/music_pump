@@ -1,6 +1,23 @@
 {% extends "layout.html" %}
 {% block body %}
 
+<!-- <link href="https://vjs.zencdn.net/7.10.2/video-js.css" rel="stylesheet" />
+ -->
+
+<video
+    id="playing_video"
+    controls
+    preload="auto"
+    width="640"
+    height="264"
+    data-setup="{}"
+    style="display: none;"
+  >
+    <p>
+      To view this video please enable JavaScript, and consider upgrading to a
+      web browser that sucks less
+    </p>
+</video>
 
 <select id="play_targets"></select>
 <input type=button onclick="get_play_targets()" value="get play targets">
@@ -48,8 +65,8 @@
                 <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >next</button>
             </div>
           </div>
-          <div class="col-sm"><div class="form-control" id="video_current_time">fail</div></div>
-          <div class="col-sm"><div class="form-control" id="video_length">whale</div></div>
+          <!-- <div class="col-sm"><div id="video_current_time">fail</div></div>
+          <div class="col-sm"><div id="video_length">whale</div></div> -->
         </div>
 
 
@@ -58,11 +75,17 @@
             <h3>videos 
               <button class="btn btn-primary .btn-lg " onclick="get_list()" >refresh file list</button> 
               <!-- currently broken -->
-              <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> -->
-              <button class="btn btn-primary .btn-lg " onclick="queue_search()" >queue visible</button>
+              <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> 
+              <button class="btn btn-primary .btn-lg " onclick="queue_search()" >queue visible</button>-->
+              <select id="file_list_order" class="custom-select">
+                <option>name</option>
+                <option>date added</option>
+
+              </select>
             </h3>
             <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
               placeholder="Search..." title="Type in a name">
+            <button onclick="$('#videoSearch').val(''); searchUL('videoSearch', 'videoUL')">clear</button> 
             <div>
             
               <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
@@ -84,6 +107,12 @@
   </div>
 </div>
 
+<style>
+  .video_edit input[type=text]{
+    width: 100%;
+  }
+</style>
+
 <!-- Modal -->
 <div class="modal fade" id="videoModal" tabindex="-1" role="dialog" aria-labelledby="videoModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
@@ -95,9 +124,10 @@
         </button>
       </div>
       <div class="modal-body">
-        <div id="videoJson">
-          <table>
-            <tr><td>video id</td><td><input type="text" class="videoId" /></td></tr>
+        <div class="video_edit">
+
+          <table style="width:100%;">
+            <tr><td>video id</td><td><input type="text" class="videoId" disabled="disabled"/></td></tr>
             <tr><td>title</td><td><input type="text" class="title" /></td></tr>
             <tr><td>filename</td><td><input type="text" class="filename" /></td></tr>
             <tr><td>added by</td><td><input type="text" class="addedBy" /></td></tr>         
@@ -111,6 +141,7 @@
             <tr><td>url</td><td><input type="text" class="url" /></td></tr>
             <tr><td>video type</td><td><input type="text" class="videoType" /></td></tr>
           </table>
+
           <button class="btn" onclick="if(confirm('delete ' + escape(video_popup_crnt_video.title) + '?')){ delete_video(video_popup_crnt_video.videoId); }">delete</button>
           <button class="btn" onclick="get_file_info( video_popup_crnt_video.videoId )">get file info</button>
           <button class="btn" onclick="if(confirm('convert ' + escape(video_popup_crnt_video.title)+' to h264 1080p?')){ convert_video(video_popup_crnt_video.videoId); }">convert video</button>
@@ -138,8 +169,9 @@
   integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" 
   integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-
-<script src="/static/javascript/jquery.growl.js" type="text/javascript"></script>
+<!-- 
+<script src="https://vjs.zencdn.net/7.10.2/video.min.js"></script> -->
+<script src="/static/scripts/jquery.growl.js" type="text/javascript"></script>
 <link href="/static/stylesheets/jquery.growl.css" rel="stylesheet" type="text/css" />
 <script src="https://cdn.jsdelivr.net/npm/js-cookie@rc/dist/js.cookie.min.js"></script>
 <script src="/static/scripts/controls.js"></script>

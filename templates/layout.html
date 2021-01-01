@@ -1,69 +1,16 @@
 <!doctype html>
-<title>music pump</title>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+<head>
+  <link rel="shortcut icon" href="/static/favicon.ico"/>
 
-<script type=text/javascript>
-  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-</script>
+  <title>music pump</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/stylesheets/global.css" crossorigin="anonymous">
+  
+  <script type=text/javascript>
+    var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+  </script>
+  
+</head>
 
-
-<style>
-    * {
-      box-sizing: border-box;
-    }
-
-    /* rename maybe to .searchableUL and .searchableULInput */
-    .fileSearch {
-      /*background-image: url('/static/css/searchicon.png');
-      background-position: 10px 12px;
-      background-repeat: no-repeat;*/
-      width: 100%;
-      /* font-size: 16px; */
-      padding: 4px 20px 4px 40px;
-      border: 1px solid #ddd;
-      margin-bottom: 12px;
-    }
-
-    .queue-list{
-      list-style-type: none;
-      padding: 0;
-      margin: 0;  
-    }
-
-    .queue-list li{
-      cursor: pointer;
-    }
-
-    .queue-list li:hover{
-      background: #eee;
-    }
-
-    .fileUL {
-      list-style-type: none;
-      padding: 0;
-      margin: 0;
-    }
-    
-    .fileUL li  {
-      border: 1px solid #ddd;
-      margin-top: -1px; /* Prevent double borders */
-      background-color: #f6f6f6;
-      padding: 4px;
-      text-decoration: none;
-      font-size: 14px;
-      color: black;
-      padding: 4px inherit 4px inherit;
-      display: block
-    }
-
-    .fileUL li .control {
-      padding: 4px;
-      color: black;
-      cursor: pointer;
-    }
-    .fileUL li:hover:not(.header) {
-      background-color: #eee;
-    }
-    </style>
 {% block body %}{% endblock %}
 
