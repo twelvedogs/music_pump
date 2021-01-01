@@ -28,8 +28,6 @@
     TODO: deal with currently playing on chromecast video on restart
 '''
 
-
-
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
 # from videoprops import get_video_properties
@@ -318,20 +316,18 @@ def list():
 
     return render_template('list.html', videos=Video.get_all(order_by_date = True))
 
-# def setup_logging():
-#     # logging.basicConfig(filename='app.log', level=logging.INFO, args)
-#     # logger = logging.get_logger()
-#     logging.info('Started')
-#     # shut up the werkzeug logger 
-#     log = logging.getLogger('werkzeug')
-#     log.setLevel(logging.ERROR)
-
 def setup_utf8_logging():
     root_logger= logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    handler = logging.FileHandler('test.log', 'w', 'utf-8') 
+    open('app.log', 'w').close()
+    handler = logging.FileHandler('app.log', 'w', 'utf-8') 
     handler.setFormatter(logging.Formatter('%(name)s %(message)s')) 
     root_logger.addHandler(handler)
+
+    #     # shut up the werkzeug logger 
+    #     log = logging.getLogger('werkzeug')
+    #     log.setLevel(logging.ERROR)
+
 
 def setup_db():
     '''
@@ -353,13 +349,13 @@ def setup_db():
         except Exception as e:
             print('Couldn\'t create database', e)
 
+# temp workaround for flask docker instance calling main.py
+#if __name__ == '__main__':
+setup_utf8_logging()
 
-if __name__ == '__main__':
-    setup_utf8_logging()
+setup_db()
 
-    setup_db()
-
-    #app.debug = False
-    app.run(host= '0.0.0.0', port=5000)
+#app.debug = False
+app.run(host= '0.0.0.0', port=5000)
 
 

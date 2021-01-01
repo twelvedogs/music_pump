@@ -72,20 +72,33 @@
 
 
         <div>
-            <h3>videos 
-              <button class="btn btn-primary .btn-lg " onclick="get_list()" >refresh file list</button> 
-              <!-- currently broken -->
-              <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> 
-              <button class="btn btn-primary .btn-lg " onclick="queue_search()" >queue visible</button>-->
+            <h3>videos</h3>
+            <!--<select id="file_list_order" class="custom-select">
+              <option>name</option>
+              <option>date added</option>
+            </select>
+
+            <button class="btn btn-primary .btn-lg " onclick="get_list()" >refresh file list</button> 
+             currently broken -->
+            <!-- <button class="btn btn-primary .btn-lg " onclick="clean_video_list()" >Clean File List</button> 
+            <button class="btn btn-primary .btn-lg " onclick="queue_search()" >queue visible</button>-->
+<!-- 
+            <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
+              placeholder="Search..." title="Type in a name">
+            <button onclick="$('#videoSearch').val(''); searchUL('videoSearch', 'videoUL')">clear</button> <br> -->
+
+            <div class="input-group mb-3">
+              <input type="text" id="videoSearch" class="form-control fileSearch" placeholder="search..." aria-label="search..." onkeyup="searchUL('videoSearch', 'videoUL')"  >
               <select id="file_list_order" class="custom-select">
                 <option>name</option>
                 <option>date added</option>
-
               </select>
-            </h3>
-            <input type="text" id="videoSearch" class="fileSearch" onkeyup="searchUL('videoSearch', 'videoUL')" 
-              placeholder="Search..." title="Type in a name">
-            <button onclick="$('#videoSearch').val(''); searchUL('videoSearch', 'videoUL')">clear</button> 
+              <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button" onclick="$('#videoSearch').val(''); searchUL('videoSearch', 'videoUL')">clear</button>
+                <button class="btn btn-outline-primary" onclick="get_list()" >refresh videos</button> 
+              </div>
+            </div>
+
             <div>
             
               <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
