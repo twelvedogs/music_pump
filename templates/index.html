@@ -90,8 +90,8 @@
             <div class="input-group mb-3">
               <input type="text" id="videoSearch" class="form-control fileSearch" placeholder="search..." aria-label="search..." onkeyup="searchUL('videoSearch', 'videoUL')"  >
               <select id="file_list_order" class="custom-select">
-                <option>name</option>
-                <option>date added</option>
+                <option>sort by name</option>
+                <option>sort by date added</option>
               </select>
               <div class="input-group-append">
                 <button class="btn btn-outline-secondary" type="button" onclick="$('#videoSearch').val(''); searchUL('videoSearch', 'videoUL')">clear</button>
@@ -101,7 +101,7 @@
 
             <div>
             
-              <ul id="videoUL" class="fileUL list-group"  style="height: 600px; overflow-y: scroll; overflow-x: hidden;"></ul>
+              <ul id="videoUL" class="fileUL list-group" ></ul>
 
             </div>
         </div>
