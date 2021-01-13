@@ -50,7 +50,8 @@ class Video:
 
     def update_file_properties(self):
         try:
-            self.file_properties = get_video_properties(cfg.path + self.filename)
+            self.file_properties = get_video_properties(os.path.join(cfg.download_path, self.filename))
+            # self.file_properties = get_video_properties(cfg.path + self.filename)
             # do the length
             length =-1
             try:

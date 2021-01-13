@@ -324,9 +324,9 @@ def setup_utf8_logging():
     handler.setFormatter(logging.Formatter('%(name)s %(message)s')) 
     root_logger.addHandler(handler)
 
-    #     # shut up the werkzeug logger 
-    #     log = logging.getLogger('werkzeug')
-    #     log.setLevel(logging.ERROR)
+    # shut up the werkzeug logger 
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
 
 
 def setup_db():

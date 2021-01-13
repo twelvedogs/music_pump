@@ -102,7 +102,7 @@ def convert_video(videoId):
     # not sure i'm happy with this rename
     newfilename = video.filename[:lastDot] + '_h264.mp4'
 
-    print('ffmpeg -y -i "downloads/'+video.filename+'" -vf scale=1920:-1 "downloads/' + newfilename + '"' )
+    print('ffmpeg -y -i "'+os.path.join(cfg.download_path, video.filename)+'" -vf scale=1920:-1 "' + os.path.join(cfg.download_path, newfilename) + '"' )
     
     if(video.filename == newfilename):
         print('don\'t want to overwrite')
@@ -113,7 +113,7 @@ def convert_video(videoId):
     os.chdir(cfg.path) # 'F://code//music_pump//'
 
     # the scale thing doesn't add black bars or anything dumb
-    subprocess.call(['ffmpeg', '-y', '-i', cfg.download_path + video.filename, '-vf', 'scale=1920:-1', cfg.download_path + newfilename])
+    subprocess.call(['ffmpeg', '-y', '-i', os.path.join(cfg.download_path, video.filename), '-vf', 'scale=1920:-1', os.path.join(cfg.download_path, newfilename)])
     
     print('finished')
 
@@ -132,7 +132,7 @@ def do_download(url, addedBy):
     # TODO: need to catch malformed url
     # TODO: check if folder exists probably
     # TODO: this is blocking, stop that
-    ydl = youtube_dl.YoutubeDL({'outtmpl': cfg.download_path + '%(title)s - %(id)s.%(ext)s', 
+    ydl = youtube_dl.YoutubeDL({'outtmpl': os.path.join(cfg.download_path, '%(title)s - %(id)s.%(ext)s'), 
         'format': 'bestvideo+bestaudio/best', 
         'getfilename': True, 
         'keep': True,
