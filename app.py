@@ -179,9 +179,9 @@ def get_status():
             probably just return player
     '''
 
-    download_status = {'url': 'http://youtube.com/whatevs', 'progress': 50 }
+    download_status = {'url': 'http://youtube.com/whatevs', 'progress': file_utility.download_progress }
 
-    return jsonify(video = player.get_video(), queue = player.get_queue(), download_status = download_status)
+    return jsonify(video = player.get_video(), time_started=player.time_started, queue = player.get_queue(), download_status = download_status)
 
 # TODO: put extra info into get_status and make that the timed update function
 @app.route('/_get_video')

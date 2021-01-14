@@ -12,6 +12,8 @@ import time
 import youtube_dl
 import json
 import ntpath
+import pathlib
+
 
 from video import Video
 from player import Player
@@ -45,21 +47,36 @@ def scan_folder_for_missing():
 
     return jsonify(files=files)
 
+#not sure of a better way to do this
+download_progress = 0
+
 def ydlhook(s):
     ''' 
     just printing atm, need to pass back to clients 
     TODO: status via websocket
     '''
+    global download_progress
     try:
         if(s['status']!='finished'):
-            print('ydlhook: ' + s['_percent_str'])
+            # print(str(s))
+            # print('ydlhook: ' + s['_percent_str'])
+            if(s['total_bytes']>0):
+                download_progress = s['downloaded_bytes'] / s['total_bytes'] * 100
+            else:
+                download_progress = 0
+
             # sio.emit('my_response', {'data':  s['_percent_str']})
             # announce to websocket
+        else:
+           download_progress=0 
     except:
         print('ydlhook failed: ', s)
 
 def remove_duplicate_entries():
-    ''' cull bad entries and other cleanup stuff'''
+    '''
+    cull bad entries and other cleanup stuff
+    currently broken
+    '''
     conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
@@ -111,16 +128,24 @@ def convert_video(videoId):
     print('gonna convert up "' + video.filename + '" to "' + newfilename +'"')
     # TODO: make os independent
     os.chdir(cfg.path) # 'F://code//music_pump//'
-
+    print('current path: ' + str(pathlib.Path().absolute()))
     # the scale thing doesn't add black bars or anything dumb
-    subprocess.call(['ffmpeg', '-y', '-i', os.path.join(cfg.download_path, video.filename), '-vf', 'scale=1920:-1', os.path.join(cfg.download_path, newfilename)])
+    # add optional ffmpeg path probably
+    # TODO: handle convert failure
+    # TODO: check path exists
+    try:
+        subprocess.call(['ffmpeg', '-y', '-i', os.path.join(cfg.download_path, video.filename), '-vf', 'scale=1920:-2', os.path.join(cfg.download_path, newfilename)])
+        video.filename=newfilename
+        video.save()
+        print('finished')
+        return True
+    except Exception as e:
+        print(e)
+        return False
+
     
-    print('finished')
 
-    video.filename=newfilename
-    video.save()
 
-    return True
 
 def do_download(url, addedBy):
     

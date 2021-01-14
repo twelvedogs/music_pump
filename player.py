@@ -102,7 +102,7 @@ class Player:
         '''
         if(title==''):
             title=file
-
+        # TODO: autodetect address/pull from config
         # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
         # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video 
         # content_type will work (possibly only those supported by your model device though)
@@ -124,6 +124,7 @@ class Player:
         # we seem to get a second idle event very soon after the first once a track is finished
         # also one directly after a new track is played
         # there's probably a better way of handling this
+        # TODO: only block fast requests if generated automatically
         if(self.last_event_time >= time.time() - 1):
             print('Very fast multiple advance queue requests, ignoring')
             return

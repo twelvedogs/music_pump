@@ -115,6 +115,12 @@ data.add_listener('queue', function(){data.set('time_queue_last_updated', get_se
 data.add_listener('videos', draw_video_list_new);
 data.add_listener('videos', function(){data.set('time_videos_last_updated', get_seconds_since_epoch());});
 data.add_listener('playing_video', update_interface); // this might be called after video has started?
+data.add_listener('download_status', update_downloader);
+
+function update_downloader(){
+  // data.download_status.
+  $('#download_progress').css('width','' + data.download_status.progress + '%');
+}
 
 function update_interface(updated){
   // if(!old || updated.videoId !== old.videoId){
@@ -145,8 +151,8 @@ function update_playing(){
 }
 
 // repeat with the interval in ms
-progress_update_timer = setInterval(update_playing, 1000);
-get_currently_playing = setInterval(get_video, 5000);
+progress_update_timer = setInterval(update_playing, 500);
+get_status_timer = setInterval(get_status, 5000);
 
 // after 5 seconds stop
 // setTimeout(() => { clearInterval(timerId); alert('stop'); }, 5000);
@@ -233,7 +239,27 @@ function play_pause(){
 }
 
 
-
+function get_status(){
+  $.getJSON($SCRIPT_ROOT + '/_get_status', {
+      queue_last_updated: data.time_queue_last_updated,
+      files_last_updated: data.time_videos_last_updated
+    }, function(response) {
+      if(response === null){
+        $.growl.error({ message: 'No Response'});
+        data.set('playing_video', null);
+        // TODO: move to listener
+        // $('#currentlyPlaying').val('Nothing playing');
+        // update_time();
+      }else{
+        data.set('playing_video', response.video);
+        data.set('time_start', response.time_started);
+        if(response.queue)
+          data.set('queue', response.queue);
+        if(response.download_status)
+          data.set('download_status', response.download_status);
+      }
+    });
+}
 
 /**
  * get current playing video & play time
@@ -297,10 +323,12 @@ function delete_video(id){
     });
 }
 
-
 function set_play_target(device_id){
+  if(!device_id)
+    alert('No Device Selected');
+
   $.getJSON($SCRIPT_ROOT + '/_set_play_target', {
-    device_id, device_id
+    device_id: device_id
   }, function(response) {
         if(response.result.length===0){
           console.log('no response');
@@ -319,27 +347,6 @@ function set_play_target(device_id){
 
 function get_play_targets(){
   $.getJSON($SCRIPT_ROOT + '/_get_play_targets', {}, function(response) {
-        if(response.result.length===0){
-          console.log('no response');
-          $.growl.error({ message: 'no play targets'});
-        }else{
-          $.growl.notice({ message: 'found play targets' });
-          $('#play_targets').empty()
-          $.each(response.result, function(i, val){
-            $('#play_targets').append(new Option(val.name, val.uuid));
-          });
-          console.log(response.result);
-        }
-    });
-}
-
-function set_play_target(device_id){
-  if(!device_id)
-    alert('No Device Selected');
-
-  $.getJSON($SCRIPT_ROOT + '/_set_play_target', {
-    device_id: device_id
-  }, function(response) {
         if(response.result.length===0){
           console.log('no response');
           $.growl.error({ message: 'no play targets'});
@@ -410,9 +417,8 @@ function download_video(){
       if(response.length===0){
         $.growl.notice({ message: 'Some kind of error downloading ' + $('#youtubeUrl').val() });
       }else{
-        $.growl.notice({ message: 'Succeeded downloading ' + response.video.title });
         data.set('videos', response.videos);
-
+        $.growl.notice({ message: 'Succeeded downloading ' + $('#youtubeUrl').val() });
       }
     });
 }
