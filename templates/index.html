@@ -33,9 +33,9 @@
     <div class="col-sm">
         <div class="input-group">
           <input type="text" class="form-control form-control-lg" id="youtubeUrl" 
-            name="youtubeUrl" placeholder="Enter URL to download">
+            name="youtubeUrl" placeholder="url...">
           <div class="input-group-append">
-            <button class="btn btn-success"  onclick="download_video()">download</button>
+            <button class="btn btn-success"  onclick="download_video()">aggressively cache</button>
           </div>
         </div>
         <div class="progress">
@@ -63,6 +63,10 @@
                 <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="play_pause()" >play/pause</button>
                 <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="stop()" >stop</button>
                 <button type="button" class="btn btn-secondary .btn-lg playerControls" onclick="next()" >next</button>
+                <!-- <button class="btn btn-secondary .btn-lg playerControls" onclick="get_queue()" >refresh queue</button> -->
+                <button class="btn btn-secondary .btn-lg playerControls" onclick="clear_queue()" >clear queue</button>
+                <button class="btn btn-secondary .btn-lg playerControls" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >scan folder</button>
+       
             </div>
           </div>
           <!-- <div class="col-sm"><div id="video_current_time">fail</div></div>
@@ -100,8 +104,8 @@
             </div>
 
             <div>
-            
-              <ul id="videoUL" class="fileUL list-group" ></ul>
+              <!--TODO: calculate height so just extends to window bottom-->
+              <ul id="videoUL" class="fileUL list-group" style="height:400px"></ul>
 
             </div>
         </div>
@@ -110,10 +114,7 @@
       <!-- right column, queue list -->
       <div class="col-sm">
 
-          <button class="btn btn-primary" onclick="get_queue()" >refresh queue</button>
-          <button class="btn btn-primary" onclick="clear_queue()" >clear queue</button>
-          <button class="btn btn-primary" onclick="if(confirm('Are you sure you want to scan download folder and add missing songs?')){scan_folder();}" >scan folder</button>
-          <div id="queue"></div>
+         <div id="queue"></div>
 
       </div>
 

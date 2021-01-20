@@ -7,19 +7,20 @@ from datetime import datetime
 import json
 from videoprops import get_video_properties
 
-# this not being serialisable sucks balls, there's probably a library for that
+
 class Video:
     '''
     video class, represents a video you can play
     '''
-    def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01', 
-                dateAdded=None, mature=False, videoType='music', addedBy='Unknown', length = -1, url='', file_properties = None):
+    def __init__(self, videoId=0, title='', filename='', rating=3, lastPlayed='2000-01-01',
+                 dateAdded=None, mature=False, videoType='music', addedBy='Unknown',
+                 length=-1, url='', file_properties=None):
         self.videoId = videoId
         self.title = title
         self.filename = filename
         self.rating = rating
         self.lastPlayed = lastPlayed
-        if(dateAdded == None):
+        if(dateAdded is None):
             dateAdded = datetime.now()
         self.dateAdded = dateAdded
         self.mature = mature
@@ -30,8 +31,9 @@ class Video:
         self.file_properties = file_properties
 
     def __str__(self):
-        return '{ \"videoId\": \"' + str(self.videoId) + '\", \"title\": \"' + self.title + '\", \"filename\": \"' + self.filename + '\",' + '\"length\": ' + str(self.length) + '}'
-   
+        return '{ \"videoId\": \"' + str(self.videoId) + '\", \"title\": \"' + self.title + '\", \"filename\": \"' + \
+            self.filename + '\",' + '\"length\": ' + str(self.length) + '}'
+
     @staticmethod
     def scan_folder():
         # if(path=='' or path==None):
@@ -42,7 +44,7 @@ class Video:
         files = [f for f in os.listdir(cfg.path) if os.path.isfile(os.path.join(cfg.path, f))]
         for file in files:
             # print(file)
-            if(Video.find_by_filename(file) == None):
+            if(Video.find_by_filename(file) is None):
                 # TODO: addedBy, dateAdded
                 vid = Video(0, file, file, addedBy="Folder Scan")
                 vid.save()
@@ -53,7 +55,7 @@ class Video:
             self.file_properties = get_video_properties(os.path.join(cfg.download_path, self.filename))
             # self.file_properties = get_video_properties(cfg.path + self.filename)
             # do the length
-            length =-1
+            length = -1
             try:
                 length = self.file_properties['duration']
             except:
@@ -61,14 +63,14 @@ class Video:
 
             if(length == -1):
                 try:
-                    arr =  self.file_properties['tags']['DURATION'].split(':')
+                    arr = self.file_properties['tags']['DURATION'].split(':')
                     length = int(arr[0]) * 60 * 60 + int(arr[1]) * 60 + float(arr[2])
                 except:
                     logging.info('video.file_properties.tags.DURATION error')
 
             self.length = length
             print(self)
-            
+
             self.save()
             return True
         except:
@@ -77,7 +79,7 @@ class Video:
 
     @staticmethod
     def find_by_filename(filename):
-        if(filename=='' or filename==None):
+        if(filename == '' or filename is None):
             logging.error('find_by_filename called with no filename')
             return None
 
@@ -86,7 +88,8 @@ class Video:
             c = conn.cursor()
             # videos=[] # probably impliment search in another function
             for row in c.execute('SELECT * FROM video where filename like ? ORDER BY dateAdded desc', (filename,)):
-                video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8])
+                video = Video(videoId=row[0], title=row[1], filename=row[2], rating=row[3], lastPlayed=row[4],
+                              dateAdded=row[5], mature=row[6], videoType=row[7], addedBy=row[8])
                 # videos += video
                 return video
 
@@ -94,7 +97,7 @@ class Video:
             return None
 
     @staticmethod
-    def get_all(order_by_date = False):
+    def get_all(order_by_date=False):
         # Video.get_all()
         conn = sqlite3.connect(cfg.db_path)
         with conn:
@@ -115,7 +118,7 @@ class Video:
                 video['filename'] = row[2]
                 video['rating'] = row[3]
                 video['addedBy'] = row[4]
-                if(row[5] != None):
+                if(row[5] is not None):
                     video['file_properties'] = json.loads(row[5])
 
                 video['length'] = row[6]
@@ -133,16 +136,15 @@ class Video:
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
-            for row in c.execute('SELECT * FROM video where videoId = ?', (videoId,)):
-                video = Video(videoId = row[0], title = row[1], filename = row[2], rating = row[3], lastPlayed = row[4], \
-                    dateAdded = row[5], mature = row[6], videoType = row[7], addedBy = row[8], \
-                    url = row[9], file_properties=row[10], length=row[11])
+            for row in c.execute('SELECT * FROM video where videoId=?', (videoId,)):
+                video = Video(videoId=row[0], title=row[1], filename=row[2], rating=row[3], lastPlayed=row[4],
+                              dateAdded=row[5], mature=row[6], videoType=row[7], addedBy=row[8],
+                              url=row[9], file_properties=row[10], length=row[11])
                 return video
-            
+
             logging.error('Video.load - video id not found: ' + videoId)
 
             return None
-
 
     def delete(self, delete_file=False):
         '''
@@ -161,20 +163,19 @@ class Video:
             os.remove(cfg.download_path + self.filename)
 
     def save(self):
-        ''' 
+        '''
         update video database record or create if videoId < 1
         '''
-        
+
         file_properties = json.dumps(self.file_properties)
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
 
             # could probably have some kind of simple object returned by a function on Video
-            if(self.videoId>0):
-                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy, file_properties=:file_properties, length=:length where videoId=:videoId', 
-                    { 'title': self.title, 'filename': self.filename, 'rating': self.rating, 'lastPlayed': self.lastPlayed, 'dateAdded': self.dateAdded, 'mature': self.mature, 'videoType': self.videoType, 'addedBy': self.addedBy, 'videoId': self.videoId, 'file_properties': file_properties, 'length': self.length })
+            if(self.videoId > 0):
+                c.execute('update video set title=:title, filename=:filename, rating=:rating, lastPlayed=:lastPlayed, dateAdded=:dateAdded, mature=:mature, videoType=:videoType, addedBy=:addedBy, file_properties=:file_properties, length=:length where videoId=:videoId',
+                          {'title': self.title, 'filename': self.filename, 'rating': self.rating, 'lastPlayed': self.lastPlayed, 'dateAdded': self.dateAdded, 'mature': self.mature, 'videoType': self.videoType, 'addedBy': self.addedBy, 'videoId': self.videoId, 'file_properties': file_properties, 'length': self.length})
             else:
-                c.execute('insert into video (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)', 
-                    (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))
-
+                c.execute('insert into video (title, filename, rating, lastPlayed, dateAdded, mature, videoType, addedBy) values (:title, :filename, :rating, :lastPlayed, :dateAdded, :mature, :videoType, :addedBy)',
+                          (self.title, self.filename, self.rating, self.lastPlayed, self.dateAdded, self.mature, self.videoType, self.addedBy))

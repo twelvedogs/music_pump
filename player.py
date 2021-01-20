@@ -1,14 +1,17 @@
 import logging
 import random
 import pychromecast
-from flask import jsonify # probably shouldn't need this here
+# from flask import jsonify # probably shouldn't need this here
 import sqlite3
 import time
 from video import Video
 import cfg
 
-# defaults to office
-def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
+
+def get_chromecast(device_id='d2d63765-0433-c897-6eb6-0517a0801cca'):
+    '''
+    defaults to office (device_id='d2d63765-0433-c897-6eb6-0517a0801cca')
+    '''
     # dunno what this is but the first element is the list of ccasts
     chromecasts = pychromecast.get_chromecasts()[0]
 
@@ -16,7 +19,7 @@ def get_chromecast(device_id = 'd2d63765-0433-c897-6eb6-0517a0801cca'):
         device = cc.device
         # print('device', device)
 
-        if(str(device.uuid)==device_id):
+        if(str(device.uuid) == device_id):
             # print('Found office')
             cc.wait()
             cc.set_volume(0.01)
@@ -41,11 +44,10 @@ class Player:
 
         # this should only be called once lol
         self.last_event_time = -1
-        if(self.mc != None):
+        if(self.mc is not None):
             self.mc.register_status_listener(self)
         else:
             print('failed to get chromecast')
-        
 
     @staticmethod
     def get_play_targets():
@@ -56,7 +58,7 @@ class Player:
         for cc in chromecasts:
             device = cc.device
             # "friendly_name", "model_name", "manufacturer", "uuid", "cast_type"
-            devices += [{ 'uuid' : device.uuid, 'name' : device.friendly_name + ' ' + device.model_name }] # can probably do this fancier but whatevs, device.__dict__ ?
+            devices += [{'uuid': device.uuid, 'name': device.friendly_name + ' ' + device.model_name}]  # can probably do this fancier but whatevs, device.__dict__ ?
 
         return devices
 
@@ -64,7 +66,7 @@ class Player:
         self.target_device_id = device_id
         self.mc = get_chromecast(device_id)
         print('new chromecast %s', (self.mc, ))
-        
+
         self.last_event_time = -1
         # dunno if this will cause trubs
         self.mc.register_status_listener(self)
@@ -80,7 +82,8 @@ class Player:
 
         self.status = status.player_state
 
-        if(str(status.player_state)=='UNKNOWN'):
+        if(str(status.player_state) == 'UNKNOWN'):
+            # TODO: check if we can still talk to chromecast and re-init if required
             print('did we lose the chromecast?')
             logging.info('status unknown\n %s', self.mc.status)
             # print(self.mc.status)
@@ -91,7 +94,7 @@ class Player:
         #     print(self.mc.status)
 
         # check if idle is a "new" status and ignore if not
-        if(str(status.player_state)=='IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
+        if(str(status.player_state) == 'IDLE' and self.mc.status.idle_reason != 'CANCELLED' and self.mc.status.idle_reason != 'INTERRUPTED'):
             # print('IDLE status causing queue advance : ' + str(self.mc.status.idle_reason))
             self.advance_queue()
 
@@ -100,64 +103,63 @@ class Player:
         play the file
         probably change to play_on_target
         '''
-        if(title==''):
-            title=file
+        if(title == ''):
+            title = file
         # TODO: autodetect address/pull from config
         # chromecast 1st & 2nd gen only support h264 & vp8 (from https://developers.google.com/cast/docs/media)
-        # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video 
+        # content_type is required but it's not super important, it's just used to decide the app that will handle it so any video
         # content_type will work (possibly only those supported by your model device though)
-        self.mc.play_media('http://192.168.1.10:5000/downloads/' + file, \
-            title='%s - %s' % (title, added_by), content_type = 'video/mp4', \
-            subtitles='http://192.168.1.10:5000/_subtitles', subtitle_id=1, subtitles_mime="text/vtt") #, autoplay=True)
-        
+        self.mc.play_media(cfg.host + '/downloads/' + file,
+                           title='%s - %s' % (title, added_by), content_type='video/mp4',
+                           subtitles=cfg.host + '/_subtitles', subtitle_id=1, subtitles_mime="text/vtt")  # , autoplay=True)
+
         self.mc.enable_subtitle(1)
         self.mc.block_until_active()
 
         self.mc.play()
 
-
     def advance_queue(self):
-        ''' 
-        try to advance to next song, add song if none found 
+        '''
+        try to advance to next song, add song if none found
         '''
 
         # we seem to get a second idle event very soon after the first once a track is finished
         # also one directly after a new track is played
         # there's probably a better way of handling this
-        # TODO: only block fast requests if generated automatically
+        # TODO: only block fast requests if generated automatically and something is already playing
         if(self.last_event_time >= time.time() - 1):
             print('Very fast multiple advance queue requests, ignoring')
             return
-        self.last_event_time = time.time()  
+
+        self.last_event_time = time.time()
 
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             logging.info('Trying to play queue order > %d', self.crnt_order)
             next_in_queue_sql = 'select video.videoId, video.title, video.filename, queue.[order], queue.addedBy from queue inner join video on queue.videoId=video.videoId where queue.[order]>? order by queue.[order] asc limit 1'
-            rows = c.execute(next_in_queue_sql,(self.crnt_order,))
+            rows = c.execute(next_in_queue_sql, (self.crnt_order,))
             next_in_queue = rows.fetchone()
 
             # if no videos in queue add one
-            if(next_in_queue == None):
+            if(next_in_queue is None):
                 logging.info('At end of existing queue, calling auto_queue()')
-                
+
                 self.auto_queue()
 
                 # get newly queued video
-                rows = c.execute(next_in_queue_sql,(self.crnt_order,))
+                rows = c.execute(next_in_queue_sql, (self.crnt_order,))
                 next_in_queue = rows.fetchone()
 
             rows.close()
 
             logging.info('Playing next file in queue: %s', next_in_queue[2])
-            
+
             # set queue position
             self.crnt_order = next_in_queue[3]
             v = Video.load(next_in_queue[0])
 
             self.play_now(v, next_in_queue[4])
-
 
     def insert_video_in_queue(self, videoId, addedBy):
         conn = sqlite3.connect(cfg.db_path)
@@ -165,9 +167,9 @@ class Player:
             c = conn.cursor()
             c.execute('update queue set [order] = [order] + 1 where [order] > ?', (self.crnt_order, ))
             conn.commit()
-            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1 ))
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, self.crnt_order + 1))
             conn.commit()
-        self.queue_last_updated=round(time.time())
+        self.queue_last_updated = round(time.time())
 
     def queue_video(self, videoId, addedBy):
         '''
@@ -175,27 +177,27 @@ class Player:
         '''
         logging.info('queue_video %s', videoId)
         video = Video.load(videoId)
-        
-        #insert into queue
+
+        # insert into queue
         conn = sqlite3.connect(cfg.db_path)
         with conn:
             c = conn.cursor()
             queueSql = '''
-            SELECT 
-                MAX([order])  
-            FROM 
+            SELECT
+                MAX([order])
+            FROM
                 queue
             '''
             for row in c.execute(queueSql):
                 max = row[0]
 
             # if no rows max is undefined
-            if(max==None):
-                max=-1
+            if(max is None):
+                max = -1
 
-            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, max + 1 ))
+            c.execute('insert into queue (videoId, addedBy, [order]) values (?, ?, ?)', (videoId, addedBy, max + 1))
 
-        self.queue_last_updated=round(time.time())
+        self.queue_last_updated = round(time.time())
 
         return video
 
@@ -227,17 +229,17 @@ class Player:
 
             # select the queue and add extra info from the video table
             queueSql = '''
-            SELECT 
-                queue.videoId, 
-                video.title, 
+            SELECT
+                queue.videoId,
+                video.title,
                 video.rating,
                 queue.addedBy,
-                queue.[order] 
-            FROM 
-                queue 
-            left join 
-                video 
-            on queue.videoId = video.videoId 
+                queue.[order]
+            FROM
+                queue
+            left join
+                video
+            on queue.videoId = video.videoId
 
             ORDER BY queue.[order] asc
             '''
@@ -266,8 +268,8 @@ class Player:
             c.execute('delete from queue')
             conn.commit()
 
-        self.crnt_order=-1
-        self.queue_last_updated=round(time.time())
+        self.crnt_order = -1
+        self.queue_last_updated = round(time.time())
 
         return True
 
@@ -305,19 +307,19 @@ class Player:
             FROM cumulative_bounds where lower_cum_bound<:rand and upper_cum_bound>:rand;'''
             rand = random.random()
 
-            for row in c.execute(rando, { 'rand': rand } ):
+            for row in c.execute(rando, {'rand': rand}):
                 video_to_add = row[0]
 
         # add new random video
         if(video_to_add > 0):
-            self.queue_video(video_to_add, 'bot ')
+            self.queue_video(video_to_add, 'bot')
             return True
         else:
             print('Failed to get a video')
             return False
 
     def get_video(self):
-        ''' 
+        '''
         get current video but look it up in db to get extra info and pass it all back
         TODO: get crnt video from chromecast if required, otherwise it's only findable if we've manipulated the chromecast since startup
         '''

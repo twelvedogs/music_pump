@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import jsonify
 from datetime import datetime
 from pathlib import Path
 import sqlite3
 import os
 import subprocess
-import random
 import time
 import youtube_dl
-import json
 import ntpath
 import pathlib
 
 
 from video import Video
-from player import Player
+# from player import Player
 
 import cfg
+
+
 def get_extension(filename):
     lastDot = filename.rindex('.')
     extension = filename[lastDot:]
@@ -35,32 +35,34 @@ def scan_folder_for_missing():
         extension = f[lastDot:]
         if(extension.lower() == '.mp4' or extension.lower() == '.mkv'):
             # TODO: should probably use an in-memory file list
-            if(Video.find_by_filename(f) == None):
+            if(Video.find_by_filename(f) is None):
                 vid = Video(0, f, f, addedBy='Folder Scan')
                 vid.save()
                 print('added', f[:lastDot], f[lastDot:])
 
         else:
-            print('not adding '+f+' wrong file type')
+            print('not adding ' + f + ' wrong file type')
 
-        time.sleep(0.01) # i'm abusing the shit out of the db so ease off a bit
+        time.sleep(0.01)  # i'm abusing the shit out of the db so ease off a bit
 
     return jsonify(files=files)
 
-#not sure of a better way to do this
+
+# not sure of a better way to do this
 download_progress = 0
 
+
 def ydlhook(s):
-    ''' 
-    just printing atm, need to pass back to clients 
+    '''
+    just printing atm, need to pass back to clients
     TODO: status via websocket
     '''
     global download_progress
     try:
-        if(s['status']!='finished'):
+        if(s['status'] != 'finished'):
             # print(str(s))
             # print('ydlhook: ' + s['_percent_str'])
-            if(s['total_bytes']>0):
+            if(s['total_bytes'] > 0):
                 download_progress = s['downloaded_bytes'] / s['total_bytes'] * 100
             else:
                 download_progress = 0
@@ -68,9 +70,10 @@ def ydlhook(s):
             # sio.emit('my_response', {'data':  s['_percent_str']})
             # announce to websocket
         else:
-           download_progress=0 
+            download_progress = 0
     except:
         print('ydlhook failed: ', s)
+
 
 def remove_duplicate_entries():
     '''
@@ -80,14 +83,14 @@ def remove_duplicate_entries():
     conn = sqlite3.connect(cfg.db_path)
     with conn:
         c = conn.cursor()
-        prevTitle=''
+        prevTitle = ''
         for row in c.execute('''
         select video.videoId, clone.videoId, clone.title
-            from video 
-            left join video as clone 
-            on video.title=clone.title 
+            from video
+            left join video as clone
+            on video.title=clone.title
                 and video.videoId!=clone.videoId
-        where clone.videoId is not null 
+        where clone.videoId is not null
         order by video.videoId asc'''):
 
             video = {}
@@ -98,15 +101,16 @@ def remove_duplicate_entries():
             # close but no cigar, this will delete the first one if there's more than 2 similar records
             if(video['title'] != prevTitle):
                 print('don\'t delete', video['videoId'])
-                prevTitle=video['title']
+                prevTitle = video['title']
                 pass
             else:
-                #c.execute('delete from video where videoId=?',(video['videoId'],))
+                # c.execute('delete from video where videoId=?',(video['videoId'],))
                 print('delete', video['videoId'])
 
             print('clone video found', video)
 
     return jsonify(result=True)
+
 
 def convert_video(videoId):
     # note: this doesn't block, subprocess.call is probably a different thread
@@ -119,15 +123,14 @@ def convert_video(videoId):
     # not sure i'm happy with this rename
     newfilename = video.filename[:lastDot] + '_h264.mp4'
 
-    print('ffmpeg -y -i "'+os.path.join(cfg.download_path, video.filename)+'" -vf scale=1920:-1 "' + os.path.join(cfg.download_path, newfilename) + '"' )
-    
+    print('ffmpeg -y -i "' + os.path.join(cfg.download_path, video.filename) + '" -vf scale=1920:-1 "' + os.path.join(cfg.download_path, newfilename) + '"')
+
     if(video.filename == newfilename):
         print('don\'t want to overwrite')
         return jsonify(result=False)
 
-    print('gonna convert up "' + video.filename + '" to "' + newfilename +'"')
-    # TODO: make os independent
-    os.chdir(cfg.path) # 'F://code//music_pump//'
+    print('gonna convert up "' + video.filename + '" to "' + newfilename + '"')
+    os.chdir(cfg.path)
     print('current path: ' + str(pathlib.Path().absolute()))
     # the scale thing doesn't add black bars or anything dumb
     # add optional ffmpeg path probably
@@ -135,7 +138,7 @@ def convert_video(videoId):
     # TODO: check path exists
     try:
         subprocess.call(['ffmpeg', '-y', '-i', os.path.join(cfg.download_path, video.filename), '-vf', 'scale=1920:-2', os.path.join(cfg.download_path, newfilename)])
-        video.filename=newfilename
+        video.filename = newfilename
         video.save()
         print('finished')
         return True
@@ -143,33 +146,28 @@ def convert_video(videoId):
         print(e)
         return False
 
-    
-
-
 
 def do_download(url, addedBy):
-    
     isPlaylist = url.find('&list=')
-    if(isPlaylist>-1):
-        url=url[0:isPlaylist]
+    if(isPlaylist > -1):
+        url = url[0:isPlaylist]
 
     # TODO: need h264 for rpi & chromecast - probably just convert file as specifying format will get lower quality
     # TODO: need to catch malformed url
     # TODO: check if folder exists probably
     # TODO: this is blocking, stop that
-    ydl = youtube_dl.YoutubeDL({'outtmpl': os.path.join(cfg.download_path, '%(title)s - %(id)s.%(ext)s'), 
-        'format': 'bestvideo+bestaudio/best', 
-        'getfilename': True, 
-        'keep': True,
-        # 'restrictfilenames': True # makes it too hard to guess file name for now
-    }) 
+    ydl = youtube_dl.YoutubeDL({'outtmpl': os.path.join(cfg.download_path, '%(title)s - %(id)s.%(ext)s'),
+                                'format': 'bestvideo+bestaudio/best',
+                                'getfilename': True,
+                                'keep': True
+                                # , 'restrictfilenames': True # makes it too hard to guess file name for now
+                                })
 
     # 'format': '137,136'}) # 'listformats': True
     ydl.add_progress_hook(ydlhook)
     with ydl:
         result = ydl.extract_info(
             url
-            
             # ,download=False # We just want to extract the info
         )
 
@@ -183,7 +181,7 @@ def do_download(url, addedBy):
         youtubeResponse = result
 
     full_path = ydl.prepare_filename(youtubeResponse)
-    #full_filename = ntpath.basename(full_path)
+    # full_filename = ntpath.basename(full_path)
     path_name, ext = get_extension(full_path)
     found_file = False
     # test if we had to merge the files into an mkv
@@ -194,7 +192,7 @@ def do_download(url, addedBy):
             found_file = True
             logging.info('found file \"%s\" using youtube-dl filename', full_path)
         else:
-            logging.info('couldn\'t find \"%s\"', full_path)          
+            logging.info('couldn\'t find \"%s\"', full_path)
 
             if Path(path_name + '.mkv').is_file():
                 found_file = True
@@ -207,7 +205,7 @@ def do_download(url, addedBy):
         logging.error('failed to determine path_name error:\n %s', str(err))
 
     if(not found_file):
-        print('couldn\'t find file '+ path_name)
+        print('couldn\'t find file ' + path_name)
         return False
 
     print('filename should be: ' + path_name + ext)
@@ -219,4 +217,3 @@ def do_download(url, addedBy):
     vid = Video(title=title, filename=ntpath.basename(path_name + ext), dateAdded=datetime.now(), addedBy=addedBy, url=url)
     vid.save()
     # list_videos()
-

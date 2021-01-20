@@ -31,25 +31,27 @@
 import logging
 from flask import Flask, jsonify, render_template, request, send_from_directory
 # from videoprops import get_video_properties
-from datetime import datetime
-from pathlib import Path
+# from datetime import datetime
+# from pathlib import Path
 import sqlite3
-import os
-import subprocess
-import random
+# import os
+# import subprocess
+# import random
 import time
-import youtube_dl
-import json
+# import youtube_dl
+# import json
 
 from video import Video
 from player import Player
 
-import cfg, file_utility
+import cfg
+import file_utility
 
 app = Flask(__name__)
 
 # get an instance of the player class that knows how to talk to chromecasts
 player = Player()
+
 
 @app.route('/_scan_folder')
 def scan_folder():
@@ -57,13 +59,15 @@ def scan_folder():
 
     return jsonify(files=Video.get_all())
 
+
 @app.route('/_get_length')
 def get_length():
     '''
     get the length of the currently playing track
-    used for slider animation and 
+    used for slider animation and
     '''
     return jsonify(result=player.crnt_video.length)
+
 
 @app.route('/_set_queue_position')
 def set_queue_position():
@@ -74,17 +78,16 @@ def set_queue_position():
     order = request.args.get('order', type=int)
     player.crnt_order = order - 1
     player.advance_queue()
-    
+
     return jsonify(queue=player.get_queue())
 
 
 @app.route('/_get_file_info')
 def get_file_info():
-    
     video = Video.load(request.args.get('videoId', type=int))
     video.update_file_properties()
 
-    return jsonify(video = dict.copy(video.__dict__))
+    return jsonify(video=dict.copy(video.__dict__))
 
 @app.route('/_delete_video')
 def delete_video():
@@ -92,16 +95,19 @@ def delete_video():
     video = Video.load(request.args.get('videoId', type=int))
     video.delete(delete_file=delete_file)
 
-    return jsonify(video = video.__dict__, videos = Video.get_all())
+    return jsonify(video=video.__dict__, videos=Video.get_all())
 
-#controls
+# controls
 # these can probably be collapsed into something like player_command('next')
+
+
 @app.route('/_next')
 def next():
     '''
     next button
     '''
     return jsonify(video=player.play_next(), queue=player.get_queue())
+
 
 @app.route('/_prev')
 def prev():
@@ -110,12 +116,14 @@ def prev():
     '''
     return jsonify(video=player.play_prev(), queue=player.get_queue())
 
+
 @app.route('/_play_pause')
 def play_pause():
     '''
     play/pause button
     '''
     return jsonify(player.play_pause())
+
 
 @app.route('/_stop')
 def stop():
@@ -124,6 +132,7 @@ def stop():
     '''
     return jsonify(player.stop())
 
+
 @app.route('/_play_video')
 def play_video():
     '''
@@ -131,12 +140,12 @@ def play_video():
     '''
     added_by = request.args.get('addedBy', str)
     video_id = request.args.get('videoId', int)
-    
+
     player.insert_video_in_queue(video_id, added_by)
 
-    return jsonify(video=player.play_next(), queue=player.get_queue()) # {'title': player.crntVideo.title})
+    return jsonify(video=player.play_next(), queue=player.get_queue())  # {'title': player.crntVideo.title})
 
-# TODO: rename _queue_video
+
 @app.route('/_queue_video')
 def queue_video():
     '''
@@ -148,20 +157,22 @@ def queue_video():
     # video = dict.copy(player.queue_video(videoId, addedBy).__dict__)
     video = player.queue_video(videoId, addedBy).__dict__
     #                 return dict.copy(self.crnt_video.__dict__)
-    return jsonify(video = video, queue=player.get_queue())
+    return jsonify(video=video, queue=player.get_queue())
 
-@app.route('/_set_play_target')  
+
+@app.route('/_set_play_target')
 def set_play_target():
     device_id = request.args.get('device_id', type=int)
     player.set_play_target(device_id)
+
 
 @app.route('/_get_play_targets')
 def get_play_targets():
     targets = Player.get_play_targets()
 
-    return jsonify(result=targets) # {'title': player.crntVideo.title}) # probably won't be updated for a second
+    return jsonify(result=targets)  # {'title': player.crntVideo.title}) # probably won't be updated for a second
 
-# TODO: rename to _get_video or something
+
 @app.route('/_get_video_by_id')
 def get_video_by_id():
 
@@ -171,6 +182,7 @@ def get_video_by_id():
 
     # return jsonify(time_started= player.time_started, video=player.get_video())
 
+
 @app.route('/_get_status')
 def get_status():
     '''
@@ -179,33 +191,38 @@ def get_status():
             probably just return player
     '''
 
-    download_status = {'url': 'http://youtube.com/whatevs', 'progress': file_utility.download_progress }
+    download_status = {'url': 'http://youtube.com/whatevs', 'progress': file_utility.download_progress}
 
-    return jsonify(video = player.get_video(), time_started=player.time_started, queue = player.get_queue(), download_status = download_status)
+    return jsonify(video=player.get_video(), time_started=player.time_started, queue=player.get_queue(), download_status=download_status)
 
-# TODO: put extra info into get_status and make that the timed update function
+
 @app.route('/_get_video')
 def get_video():
     client_queue_last_updated = request.args.get('queue_last_updated', type=int)
 
     obj = {'time_started': player.time_started, 'video': player.get_video()}
 
-    if(client_queue_last_updated<player.queue_last_updated):
+    if(client_queue_last_updated < player.queue_last_updated):
         obj['queue'] = player.get_queue()
 
-    #if(client_files_last_updated<player):
+    # if(client_files_last_updated<player):
     #    obj.videos = Video.get_all()
 
     return jsonify(obj)
 
-# attempting to set subtitles for a video to show info, currently broken
+
 @app.route('/_subtitles')
 def subtitles():
+    '''
+    attempting to set subtitles for a video to show info, currently broken
+    '''
+
     return """WEBVTT
 
 00:00.000 --> 00:13.000
 <v Roger Bingham>We are in New York City
 """
+
 
 @app.route('/_rate')
 def rate_video():
@@ -220,14 +237,16 @@ def rate_video():
 
     return jsonify(videos=Video.get_all())
 
+
 def long_running_test():
     # probably call websocket to make sure it's running
     print('doing a long running test')
     time.sleep(15)
 
+
 @app.route('/_process_queue')
 def process_queue():
-    ''' 
+    '''
     play the queue
     TODO: this doesn't work, what should it even do?
     '''
@@ -259,7 +278,7 @@ def list_videos():
     '''
     return big video list to client
     '''
-    return jsonify(videos= Video.get_all())
+    return jsonify(videos=Video.get_all())
 
 
 @app.route('/_clean_video_list')
@@ -269,6 +288,7 @@ def clean_video_list():
 
     return jsonify(result=True)
 
+
 @app.route('/_convert_video')
 def convert_video():
     # TODO: stop this from being accessed more than once
@@ -277,8 +297,9 @@ def convert_video():
     # TODO: check not overwriting lowercase filename
     videoId = request.args.get('videoId', '', type=int)
     file_utility.convert_video(videoId)
-    
+
     return jsonify(result=True)
+
 
 @app.route('/_download_video')
 def download_video():
@@ -295,36 +316,38 @@ def download_video():
     # sio.start_background_task(do_download, url, addedBy)
     # eventlet.greenthread.spawn(do_download, url, addedBy)
 
-    return jsonify(videos = Video.get_all())
+    return jsonify(videos=Video.get_all())
 
-# allow downloads from directory, should be just served by the webserver
+
 @app.route('/downloads/<path:path>')
 def send_video(path):
+    # allow downloads from directory, should be just served by the webserver
     return send_from_directory('downloads', path)
+
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-#controls
-# these can probably be collapsed into something like player_command('next')
+
 @app.route('/list')
 def list():
     '''
     big video list page
     '''
 
-    return render_template('list.html', videos=Video.get_all(order_by_date = True))
+    return render_template('list.html', videos=Video.get_all(order_by_date=True))
+
 
 def setup_utf8_logging():
-    root_logger= logging.getLogger()
+    root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     open('app.log', 'w').close()
     handler = logging.FileHandler('app.log', 'w', 'utf-8') 
-    handler.setFormatter(logging.Formatter('%(name)s %(message)s')) 
+    handler.setFormatter(logging.Formatter('%(name)s %(message)s'))
     root_logger.addHandler(handler)
 
-    # shut up the werkzeug logger 
+    # shut up the werkzeug logger
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
 
@@ -350,12 +373,12 @@ def setup_db():
             print('Couldn\'t create database', e)
 
 # temp workaround for flask docker instance calling main.py
-#if __name__ == '__main__':
+# if __name__ == '__main__':
+
+
 setup_utf8_logging()
 
 setup_db()
 
-#app.debug = False
-app.run(host= '0.0.0.0', port=5000)
-
-
+# app.debug = False
+app.run(host='0.0.0.0', port=5000)
